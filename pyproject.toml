@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "promptpress"
+version = "0.1.0"
+description = "Budgeted context compression for LLM applications — cut input tokens 30-70% without losing the facts"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Vamsi Krishna Unnam" }]
+keywords = ["llm", "tokens", "compression", "prompt-engineering", "context-window", "anthropic"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = []
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.40"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+promptpress = "promptpress.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["promptpress*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
