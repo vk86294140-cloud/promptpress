@@ -35,3 +35,13 @@ def test_file_roundtrip(tmp_path):
     p = run_cli(["compress", str(src), "-o", str(dst)])
     assert p.returncode == 0
     assert dst.read_text(encoding="utf-8")
+
+
+def test_cli_version(capsys):
+    import pytest
+    from promptpress.cli import main
+    from promptpress import __version__
+    with pytest.raises(SystemExit) as e:
+        main(["--version"])
+    assert e.value.code == 0
+    assert __version__ in capsys.readouterr().out

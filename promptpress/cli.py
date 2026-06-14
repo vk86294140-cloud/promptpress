@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .pipeline import compress
 from .tokens import estimate_tokens
+from . import __version__
 
 
 def _read(src: str) -> str:
@@ -23,6 +24,7 @@ def _read(src: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="promptpress", description="LLM context compression")
+    ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     c = sub.add_parser("compress", help="compress a file (or - for stdin)")
