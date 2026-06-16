@@ -2,6 +2,7 @@ from promptpress.strategies import (
     CodeStrategy,
     DedupStrategy,
     ExtractStrategy,
+    HtmlStrategy,
     MarkdownStrategy,
     StopwordStrategy,
     WhitespaceStrategy,
@@ -122,3 +123,37 @@ def test_extract_leaves_short_paragraphs_alone():
 def test_extract_skips_code_and_lists():
     text = "```\ncode\n```\n\n- item one\n- item two"
     assert ExtractStrategy().compress(text) == text
+
+
+# ── html ────────────────────────────────────────────────────────────────
+
+def test_html_strips_tags_keeps_text():
+    out = HtmlStrategy().compress('<div class="x"><p>Hello <b>world</b></p></div>')
+    assert "Hello world" in out
+    assert "<div" not in out and "<b>" not in out
+
+
+def test_html_decodes_entities():
+    out = HtmlStrategy().compress("Tom &amp; Jerry &lt;3 &nbsp;done")
+    assert "Tom & Jerry <3" in out
+    assert "&amp;" not in out and "&nbsp;" not in out
+
+
+def test_html_drops_comments_script_style():
+    text = "<!-- secret --><style>p{color:red}</style><script>evil()</script>Visible"
+    out = HtmlStrategy().compress(text)
+    assert "Visible" in out
+    assert "secret" not in out and "evil()" not in out and "color:red" not in out
+
+
+def test_html_preserves_code_and_urls():
+    text = "see `<div>` literal and https://x.com/<a> then <span>strip me</span>"
+    out = HtmlStrategy().compress(text)
+    assert "`<div>`" in out                  # inline code untouched
+    assert "https://x.com/<a>" in out        # URL untouched
+    assert "<span>" not in out and "strip me" in out
+
+
+def test_html_noop_without_tags():
+    text = "plain prose, nothing to strip here."
+    assert HtmlStrategy().compress(text) == text
