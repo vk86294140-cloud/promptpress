@@ -14,6 +14,7 @@ from .strategies.base import Strategy
 from .strategies.code import CodeStrategy
 from .strategies.dedup import DedupStrategy
 from .strategies.extract import ExtractStrategy
+from .strategies.html import HtmlStrategy
 from .strategies.markdown import MarkdownStrategy
 from .strategies.stopword import StopwordStrategy
 from .strategies.whitespace import WhitespaceStrategy
@@ -24,6 +25,7 @@ def default_strategies() -> list[Strategy]:
     return [
         WhitespaceStrategy(),
         MarkdownStrategy(),
+        HtmlStrategy(),
         CodeStrategy(),
         DedupStrategy(),
         StopwordStrategy(),

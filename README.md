@@ -9,9 +9,9 @@ Zero runtime dependencies. Pure Python stdlib. The `anthropic` SDK is optional (
 Input tokens are the dominant cost of most LLM applications — long system prompts, repeated chat history, concatenated documents, verbose tool output. Most of that text is *redundant to a language model*: duplicated paragraphs, markdown decoration, filler words, comments restating the code below them. PromptPress removes exactly that, in order of increasing loss, and **stops the moment your token budget is met** — text is never made lossier than the budget demands.
 
 ```
-input ──► L0 whitespace ──► L1 markdown ──► L1 code ──► L2 dedup ──► L2 stopword ──► L3 extract ──► output
-          (lossless)        (decoration)    (comments)  (Jaccard     (telegraphic    (TextRank
-                                                         shingles)    prose)          summarizer)
+input ──► L0 whitespace ──► L1 markdown ──► L1 html ──► L1 code ──► L2 dedup ──► L2 stopword ──► L3 extract ──► output
+          (lossless)        (decoration)    (tags)      (comments)  (Jaccard     (telegraphic    (TextRank
+                                                                    shingles)    prose)          summarizer)
                        │ budget met? stop here — later stages never run │
 ```
 
