@@ -9,9 +9,9 @@ Zero runtime dependencies. Pure Python stdlib. The `anthropic` SDK is optional (
 Input tokens are the dominant cost of most LLM applications — long system prompts, repeated chat history, concatenated documents, verbose tool output. Most of that text is *redundant to a language model*: duplicated paragraphs, markdown decoration, filler words, comments restating the code below them. PromptPress removes exactly that, in order of increasing loss, and **stops the moment your token budget is met** — text is never made lossier than the budget demands.
 
 ```
-input ──► L0 whitespace ──► L1 markdown ──► L1 html ──► L1 code ──► L2 dedup ──► L2 stopword ──► L3 extract ──► output
-          (lossless)        (decoration)    (tags)      (comments)  (Jaccard     (telegraphic    (TextRank
-                                                                    shingles)    prose)          summarizer)
+input ──► L0 whitespace ──► L1 markdown ──► L1 html ──► L1 code ──► L2 quoted ──► L2 dedup ──► L2 stopword ──► L3 extract ──► output
+          (lossless)        (decoration)    (tags)      (comments)  (email       (Jaccard     (telegraphic    (TextRank
+                                                                    cruft)       shingles)    prose)          summarizer)
                        │ budget met? stop here — later stages never run │
 ```
 
@@ -78,6 +78,7 @@ Exit code `2` means the budget could not be met even at the maximum allowed leve
 - **Aggressiveness ladder.** Every strategy declares a level: 0 lossless → 3 aggressive. The pipeline runs cheapest-first and short-circuits on budget. A stage that fails to shrink the text is discarded (compression is monotonic by construction).
 - **Protected regions.** Code fences, inline code, URLs, and quoted strings are swapped for sentinels before any prose rewriting and restored after — exact-match semantics survive every level.
 - **Code-aware, not regex-naive.** Python blocks go through the real `tokenize` module, so `x = "# not a comment"` survives while comments and docstrings die. Other languages get a conservative full-line pass.
+- **Email-aware.** The `quoted` stage strips reply chains (`> ...` and `On … wrote:`), `-- ` signatures, mobile footers, and confidentiality disclaimers — the bulk of any context built from email threads or support tickets.
 - **Dedup is exact Jaccard over word 3-shingles** — the MinHash idea without the hashing, because prompts have hundreds of paragraphs, not millions.
 - **Extractive, never generative.** Level 3 is TextRank (PageRank power iteration over a sentence-similarity graph) implemented from scratch in ~50 lines. It selects your sentences; it cannot hallucinate new ones.
 - **Token estimation without a tokenizer.** Word/symbol pass blended with character density, CJK-aware, ~±8% vs real BPE counts — enough for budgeting, zero dependencies. Exact counts available via the Anthropic API when installed.
@@ -86,7 +87,7 @@ Exit code `2` means the budget could not be met even at the maximum allowed leve
 
 ```bash
 pip install -e ".[dev]"
-pytest -v   # 29 tests: every strategy, budget logic, protection invariants, CLI
+pytest -v   # every strategy, budget logic, protection invariants, CLI
 ```
 
 ## License

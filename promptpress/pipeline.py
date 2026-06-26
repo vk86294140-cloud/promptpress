@@ -16,6 +16,7 @@ from .strategies.dedup import DedupStrategy
 from .strategies.extract import ExtractStrategy
 from .strategies.html import HtmlStrategy
 from .strategies.markdown import MarkdownStrategy
+from .strategies.quoted import QuotedTextStrategy
 from .strategies.stopword import StopwordStrategy
 from .strategies.whitespace import WhitespaceStrategy
 from .tokens import estimate_tokens
@@ -27,6 +28,7 @@ def default_strategies() -> list[Strategy]:
         MarkdownStrategy(),
         HtmlStrategy(),
         CodeStrategy(),
+        QuotedTextStrategy(),
         DedupStrategy(),
         StopwordStrategy(),
         ExtractStrategy(),
