@@ -4,6 +4,7 @@ from promptpress.strategies import (
     ExtractStrategy,
     HtmlStrategy,
     MarkdownStrategy,
+    QuotedTextStrategy,
     StopwordStrategy,
     WhitespaceStrategy,
 )
@@ -157,3 +158,65 @@ def test_html_preserves_code_and_urls():
 def test_html_noop_without_tags():
     text = "plain prose, nothing to strip here."
     assert HtmlStrategy().compress(text) == text
+
+
+# ── quoted ──────────────────────────────────────────────────────────────
+
+def test_quoted_drops_reply_chain_and_attribution():
+    text = (
+        "Confirmed, the patch fixes it.\n\n"
+        "On Mon, Jun 23, 2025 at 4:01 PM Jane Doe <jane@x.com> wrote:\n"
+        "> Did the latest build resolve the crash?\n"
+        "> Let me know.\n"
+    )
+    out = QuotedTextStrategy().compress(text)
+    assert "Confirmed, the patch fixes it." in out
+    assert "wrote:" not in out
+    assert "Did the latest build" not in out
+
+
+def test_quoted_drops_signature_and_disclaimer():
+    text = (
+        "Approved — ship it.\n\n"
+        "-- \n"
+        "John Smith\nVP Engineering\n555-0100\n\n"
+        "This email and any attachments are confidential and intended solely "
+        "for the addressee.\n"
+    )
+    out = QuotedTextStrategy().compress(text)
+    assert "Approved" in out
+    assert "VP Engineering" not in out
+    assert "confidential" not in out
+
+
+def test_quoted_strips_sent_from_footer():
+    out = QuotedTextStrategy().compress("Sounds good.\nSent from my iPhone\n")
+    assert "Sounds good." in out
+    assert "Sent from my" not in out
+
+
+def test_quoted_protects_code_redirect():
+    text = "Run this:\n```\ncat in.txt > out.txt\n```\nThanks."
+    out = QuotedTextStrategy().compress(text)
+    assert "cat in.txt > out.txt" in out  # '>' inside code survives
+    assert "Thanks." in out
+
+
+def test_quoted_noop_on_plain_prose():
+    text = "Just a normal sentence with no email cruft at all.\n"
+    assert QuotedTextStrategy().compress(text) == text
+
+
+def test_quoted_idempotent():
+    s = QuotedTextStrategy()
+    once = s.compress("Yes.\n\nOn x wrote:\n> old\n-- \nsig\n")
+    assert s.compress(once) == once
+
+
+def test_quoted_truncates_reply_body_without_chevrons():
+    # Regression: the markdown stage removes '>' chevrons before quoted runs,
+    # so the reply body must still be dropped via the attribution line.
+    text = "Confirmed.\n\nOn Mon Jane wrote:\nold question here\nplease advise\n"
+    out = QuotedTextStrategy().compress(text)
+    assert "Confirmed." in out
+    assert "old question here" not in out and "please advise" not in out
