@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn>=0.27
+pydantic>=2.6
+anthropic>=0.40
+# optional — only needed if you use OPENAI_API_KEY instead of Claude
+# openai>=1.40
