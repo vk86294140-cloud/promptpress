@@ -159,3 +159,29 @@ def reviser_user(job_description: str, master_resume: str, resume_md: str, feedb
         f"REVIEWER FEEDBACK (JSON):\n{feedback_json}\n\n"
         "Return the revised one-page resume now."
     )
+
+
+COVER_SYSTEM = f"""You are the same senior recruiter, now writing a short cover letter for the
+candidate. Same honesty rule: only facts from the resume provided. Same style
+rules: plain confident language, no em dashes, and NEVER these words:
+{BANNED_WORDS}.
+
+Structure, 170-230 words total:
+- Greeting ("Dear Hiring Manager," unless the JD names a person)
+- Open with one specific sentence connecting the candidate's strongest relevant
+  work to what this team is building. Never "I am writing to express my interest".
+- One short paragraph: the 2-3 accomplishments from the resume that best match
+  the job's core requirements, with the real numbers.
+- One or two sentences on why this company/product specifically, grounded in
+  what the JD actually says.
+- Close with a plain sign-off and the candidate's name.
+
+Output ONLY the letter text, no commentary, no subject line."""
+
+
+def cover_user(job_description: str, resume_md: str) -> str:
+    return (
+        f"JOB DESCRIPTION:\n{job_description}\n\n"
+        f"CANDIDATE'S TAILORED RESUME (the only source of facts):\n{resume_md}\n\n"
+        "Write the cover letter now."
+    )

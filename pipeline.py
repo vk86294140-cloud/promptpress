@@ -4,6 +4,7 @@ import json
 import os
 import re
 
+import ats
 import llm
 import prompts
 
@@ -55,6 +56,7 @@ def tailor(job_description: str, master_resume: str) -> dict:
         kind="resume",
     ).strip()
     scores = score(job_description, resume_md)
+    scores["ats_keyword_scan"] = ats.scan(job_description, resume_md)
 
     revisions = 0
     while revisions < MAX_REVISIONS and not _meets_target(scores):
@@ -68,6 +70,7 @@ def tailor(job_description: str, master_resume: str) -> dict:
             kind="resume",
         ).strip()
         revised_scores = score(job_description, revised)
+        revised_scores["ats_keyword_scan"] = ats.scan(job_description, revised)
         # keep the revision only if it didn't make things worse
         if revised_scores["overall"] >= scores["overall"]:
             resume_md, scores = revised, revised_scores

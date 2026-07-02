@@ -95,6 +95,7 @@
           <div class="meter"><span>Experience</span><div class="bar"><i id="b-exp"></i></div><span id="v-exp"></span></div>
           <div class="meter"><span>Industry</span><div class="bar"><i id="b-ind"></i></div><span id="v-ind"></span></div>
           <div class="meter"><span><b>Overall</b></span><div class="bar"><i id="b-all"></i></div><span id="v-all"></span></div>
+          <div class="meter" id="atsrow" style="display:none"><span>ATS keywords</span><div class="bar"><i id="b-ats"></i></div><span id="v-ats"></span></div>
           <div class="missing" id="missing"></div>
           <div class="missing" id="improve"></div>
           <div class="row">
@@ -102,6 +103,14 @@
             <button class="btn" id="dldocx">Download DOCX</button>
             <button class="btn ghost" id="copy">Copy text</button>
             <button class="btn ghost" id="dlmd">Download .md</button>
+            <button class="btn ghost" id="mkcover" style="display:none">Cover letter</button>
+          </div>
+          <div id="coverpanel" style="display:none;margin-top:10px">
+            <div id="covertext" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;white-space:pre-wrap;font-size:13px"></div>
+            <div class="row">
+              <button class="btn ghost" id="covercopy">Copy letter</button>
+              <button class="btn ghost" id="coverdocx">Letter .docx</button>
+            </div>
           </div>
           <p class="hint" style="margin:8px 0 0">DOCX is the safest format for ATS portals; the PDF is text-based with standard fonts, fine everywhere else.</p>
         </div>
@@ -213,6 +222,13 @@ function paintScores(sc){
   }
   $("missing").innerHTML = (sc.missing_keywords || []).length
     ? `<b>Not in your background (be ready to address):</b> ${sc.missing_keywords.map(esc).join(", ")}` : "";
+  const scan = sc.ats_keyword_scan;
+  $("atsrow").style.display = scan ? "grid" : "none";
+  if (scan){
+    $("b-ats").style.width = scan.percent + "%";
+    $("b-ats").className = scan.percent >= 70 ? "good" : scan.percent >= 50 ? "warn" : "";
+    $("v-ats").textContent = scan.percent + "%";
+  }
   const imps = sc.improvements || [];
   $("improve").innerHTML = imps.length
     ? `<b>Checker suggestions:</b><br>` + imps.map(i => `&bull; <b>${esc(i.section || "general")}:</b> ${esc(i.fix || String(i))}`).join("<br>") : "";
@@ -234,6 +250,8 @@ async function tailor(){
     lastMarkdown = d.resume_markdown; lastName = d.saved_as || "resume";
     $("sheet").innerHTML = render(d.resume_markdown);
     paintScores(d.scores);
+    $("mkcover").style.display = "inline-block";
+    $("coverpanel").style.display = "none";
     msg.className = d.target_met ? "ok" : "err";
     msg.textContent = d.target_met
       ? `Done — all dimensions ≥ 85% (${d.revisions} revision${d.revisions === 1 ? "" : "s"}). Saved as ${d.saved_as}.`
@@ -265,6 +283,27 @@ $("jd").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey |
 // ---- export ----
 $("dlpdf").onclick  = () => { if (lastName !== "resume") location.href = `/api/download/${encodeURIComponent(lastName)}/pdf`; };
 $("dldocx").onclick = () => { if (lastName !== "resume") location.href = `/api/download/${encodeURIComponent(lastName)}/docx`; };
+$("mkcover").onclick = async () => {
+  const btn = $("mkcover");
+  btn.disabled = true; btn.textContent = "Writing…";
+  try{
+    const r = await fetch("/api/cover", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({job_description: $("jd").value.trim(), resume_markdown: lastMarkdown})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Cover letter failed");
+    $("covertext").textContent = d.letter;
+    $("coverpanel").style.display = "block";
+  }catch(e){ $("msg").className = "err"; $("msg").textContent = e.message; }
+  btn.disabled = false; btn.textContent = "Cover letter";
+};
+$("covercopy").onclick = async () => { await navigator.clipboard.writeText($("covertext").textContent); $("covercopy").textContent = "Copied!"; setTimeout(() => $("covercopy").textContent = "Copy letter", 1200); };
+$("coverdocx").onclick = async () => {
+  const r = await fetch("/api/cover-docx", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({letter_text: $("covertext").textContent})});
+  const blob = await r.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "cover-letter.docx"; a.click(); URL.revokeObjectURL(a.href);
+};
 $("copy").onclick = async () => { await navigator.clipboard.writeText(lastMarkdown); $("copy").textContent = "Copied!"; setTimeout(() => $("copy").textContent = "Copy text", 1200); };
 $("dlmd").onclick = () => {
   const a = document.createElement("a");

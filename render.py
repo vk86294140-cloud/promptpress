@@ -263,3 +263,23 @@ def to_docx(md: str) -> bytes:
     buf = io.BytesIO()
     d.save(buf)
     return buf.getvalue()
+
+
+def letter_to_docx(text: str) -> bytes:
+    """Plain business-letter DOCX (Calibri 11, 1in margins)."""
+    from docx import Document
+    from docx.shared import Inches, Pt
+
+    d = Document()
+    for section in d.sections:
+        section.top_margin = section.bottom_margin = Inches(1)
+        section.left_margin = section.right_margin = Inches(1)
+    normal = d.styles["Normal"]
+    normal.font.name = "Calibri"
+    normal.font.size = Pt(11)
+    normal.paragraph_format.space_after = Pt(8)
+    for block in text.strip().split("\n\n"):
+        d.add_paragraph(block.strip())
+    buf = io.BytesIO()
+    d.save(buf)
+    return buf.getvalue()

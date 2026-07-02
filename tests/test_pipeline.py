@@ -92,3 +92,20 @@ def test_pdf_autofits_long_resume_to_one_page():
     fitted = render.to_pdf(long_md)
     # "/Type /Page" is a prefix of "/Type /Pages", so subtract the tree node
     assert fitted.count(b"/Type /Page") - fitted.count(b"/Type /Pages") == 1
+
+
+def test_ats_scan():
+    import ats
+    jd = ("Looking for a Python engineer with AWS, Docker, Kubernetes, React and "
+          "TypeScript experience. Python and AWS required. Machine learning a plus. "
+          "Machine learning models in production.")
+    scan = ats.scan(jd, "Python developer with AWS, Docker and React experience")
+    assert 0 < scan["percent"] < 100
+    assert "python" in scan["matched"] and "kubernetes" in scan["missing"]
+
+
+def test_tailor_includes_ats_scan_and_demo_letter():
+    result = pipeline.tailor("Python AWS Docker engineer " * 10, "Python AWS master resume")
+    assert "ats_keyword_scan" in result["scores"]
+    import llm
+    assert "Dear Hiring Manager" in llm.complete("s", "u", kind="letter")

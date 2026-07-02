@@ -90,6 +90,13 @@ def _openai_compatible(system: str, user: str, max_tokens: int,
 
 def _demo(kind: str) -> str:
     """Canned output so the UI and pipeline can be exercised with no API key."""
+    if kind == "letter":
+        return (
+            "Dear Hiring Manager,\n\nYour team is building payment infrastructure at a scale "
+            "I have spent six years working at. At Acme Payments I cut checkout p99 latency "
+            "from 900ms to 210ms and led a zero-downtime migration of 40M monthly "
+            "transactions.\n\nSincerely,\nJane Doe"
+        )
     if kind == "score":
         return (
             '{"job_title": "Software Engineer", "company": "Demo Corp",'

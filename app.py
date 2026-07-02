@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 import llm
 import pipeline
+import prompts
 import render
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -142,6 +143,45 @@ def check(body: CheckRequest):
     except Exception as exc:
         raise HTTPException(502, f"Check failed: {exc}") from exc
     return {"scores": scores, "provider": llm.detect_provider(), "model": llm.active_model()}
+
+
+class CoverRequest(BaseModel):
+    job_description: str
+    resume_markdown: str
+
+
+class CoverDocxRequest(BaseModel):
+    letter_text: str
+
+
+@app.post("/api/cover")
+def cover(body: CoverRequest):
+    """Generate a matching cover letter from the tailored resume + JD."""
+    _require_api_key()
+    jd = body.job_description.strip()
+    resume = body.resume_markdown.strip()
+    if len(jd) < 80 or len(resume) < 120:
+        raise HTTPException(400, "Need the job description and a tailored resume first.")
+    try:
+        letter = llm.complete(
+            prompts.COVER_SYSTEM, prompts.cover_user(jd, resume),
+            max_tokens=1024, kind="letter",
+        ).strip()
+    except Exception as exc:
+        raise HTTPException(502, f"Cover letter failed: {exc}") from exc
+    return {"letter": letter}
+
+
+@app.post("/api/cover-docx")
+def cover_docx(body: CoverDocxRequest):
+    """Render already-generated letter text to DOCX (no LLM call)."""
+    if len(body.letter_text.strip()) < 50:
+        raise HTTPException(400, "No letter text.")
+    return Response(
+        render.letter_to_docx(body.letter_text),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="cover-letter.docx"'},
+    )
 
 
 @app.get("/api/download/{name}/{fmt}")
