@@ -9,6 +9,18 @@ reached — it never invents experience to force a score).
 job description ─► writer (senior-recruiter prompt) ─► recruiter/ATS scorer ─► <85%? revise (max 2x) ─► one-page resume + scores
 ```
 
+## Getting updates
+
+The app lives in a git repo — no zips. To update:
+
+```powershell
+cd C:\Users\vamsi\Desktop\Job-Automation\resume_app
+git pull
+pip install -r requirements.txt   # in case dependencies changed
+```
+
+Your `data/` folder (master resume + generated outputs) is gitignored and never touched by updates.
+
 ## Setup (Windows PowerShell)
 
 ```powershell
@@ -51,20 +63,27 @@ macOS/Linux: same thing with `source .venv/bin/activate` and `export ANTHROPIC_A
   header location, no tables in the body, standard section names — the things
   ATS parsers care about.
 
-## Which API — Claude or OpenAI?
+## Which API — Claude, OpenAI, or Groq?
 
-Both work; whichever key is set is used (Claude wins if both are set).
-**Claude is the better fit here** — resume rewriting is a nuance-heavy writing
-task, and Claude is stronger at natural, non-robotic prose and at following the
-strict style rules (banned buzzwords, no fabrication). Defaults:
+All three work. Auto-detection order: `ANTHROPIC_API_KEY` → `OPENAI_API_KEY` →
+`GROQ_API_KEY`, or force one with `RESUME_PROVIDER=anthropic|openai|groq`.
 
-| Provider  | Default model    | Override                              |
-|-----------|------------------|---------------------------------------|
-| Anthropic | `claude-opus-4-8`| `RESUME_MODEL=claude-sonnet-5` (cheaper, still strong) |
-| OpenAI    | `gpt-4o`         | `RESUME_MODEL=<any model id>`          |
+| Provider  | Default model             | Cost per tailored resume | Quality |
+|-----------|---------------------------|--------------------------|---------|
+| Anthropic | `claude-sonnet-5`         | ~5–15¢                   | Best writing (recommended) |
+| Groq      | `llama-3.3-70b-versatile` | ~free                    | Good, slightly more generic phrasing |
+| OpenAI    | `gpt-4o`                  | ~5–15¢                   | Good |
 
-A full tailor run is 3–7 model calls (~5–15K tokens): a few cents on Sonnet,
-~10–20¢ on Opus.
+Use Groq (PowerShell — needs `pip install openai` once):
+
+```powershell
+$env:RESUME_PROVIDER = "groq"
+$env:GROQ_API_KEY = "gsk_your_groq_key"
+uvicorn app:app --port 8080
+```
+
+Want maximum quality for one important application? `$env:RESUME_MODEL = "claude-opus-4-8"`
+(that's the ~$1/run model — the default is now Sonnet at a tenth of the cost).
 
 ## Honesty guardrail (read this)
 

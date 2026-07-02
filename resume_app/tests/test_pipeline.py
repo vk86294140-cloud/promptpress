@@ -77,3 +77,18 @@ def test_render_pdf_and_docx():
     assert b"/URI" in pdf  # hyperlinks embedded
     docx = render.to_docx(SAMPLE_MD)
     assert docx[:2] == b"PK" and len(docx) > 1000
+
+
+def test_pdf_autofits_long_resume_to_one_page():
+    import render
+    long_md = SAMPLE_MD + "".join(
+        f"\n**Engineer — Company {i}** | 20{10+i} – 20{11+i}\n"
+        "- Did a fairly long piece of work that takes a full line to describe properly\n"
+        "- Another substantial bullet with enough words to wrap onto a second line sometimes\n"
+        for i in range(12)
+    )
+    _, pages_full = render._build_pdf(long_md, 1.0)
+    assert pages_full > 1  # would overflow at full size
+    fitted = render.to_pdf(long_md)
+    # "/Type /Page" is a prefix of "/Type /Pages", so subtract the tree node
+    assert fitted.count(b"/Type /Page") - fitted.count(b"/Type /Pages") == 1

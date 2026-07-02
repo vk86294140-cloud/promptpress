@@ -64,8 +64,18 @@ def link_for(token: str):
 # ---------------------------------------------------------------- PDF
 
 def to_pdf(md: str) -> bytes:
+    """Render to PDF, auto-shrinking the type until it fits exactly one page."""
+    data = b""
+    for scale in (1.0, 0.94, 0.88, 0.82, 0.76):
+        data, pages = _build_pdf(md, scale)
+        if pages <= 1:
+            return data
+    return data
+
+
+def _build_pdf(md: str, scale: float):
     from reportlab.lib import colors
-    from reportlab.lib.enums import TA_LEFT, TA_RIGHT
+    from reportlab.lib.enums import TA_RIGHT
     from reportlab.lib.pagesizes import LETTER
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import inch
@@ -82,14 +92,15 @@ def to_pdf(md: str) -> bytes:
         title=f"{doc['name']} - Resume", author=doc["name"],
     )
     usable = LETTER[0] - 1.2 * inch
+    z = scale  # type scale factor; < 1.0 compresses everything proportionally
 
-    s_name = ParagraphStyle("name", fontName="Helvetica-Bold", fontSize=17, leading=20, spaceAfter=2)
-    s_contact = ParagraphStyle("contact", fontName="Helvetica", fontSize=9.5, leading=12, spaceAfter=6, textColor=colors.HexColor("#222222"))
-    s_body = ParagraphStyle("body", fontName="Helvetica", fontSize=10, leading=12.6, spaceAfter=2)
-    s_h2 = ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=10.5, leading=13, spaceBefore=8, spaceAfter=1)
-    s_role = ParagraphStyle("role", fontName="Helvetica-Bold", fontSize=10, leading=12.6)
-    s_date = ParagraphStyle("date", fontName="Helvetica", fontSize=9.5, leading=12.6, alignment=TA_RIGHT, textColor=colors.HexColor("#444444"))
-    s_bullet = ParagraphStyle("bullet", parent=s_body, leftIndent=13, bulletIndent=3, spaceAfter=1.2)
+    s_name = ParagraphStyle("name", fontName="Helvetica-Bold", fontSize=17 * z, leading=20 * z, spaceAfter=2 * z)
+    s_contact = ParagraphStyle("contact", fontName="Helvetica", fontSize=9.5 * z, leading=12 * z, spaceAfter=6 * z, textColor=colors.HexColor("#222222"))
+    s_body = ParagraphStyle("body", fontName="Helvetica", fontSize=10 * z, leading=12.6 * z, spaceAfter=2 * z)
+    s_h2 = ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=10.5 * z, leading=13 * z, spaceBefore=8 * z, spaceAfter=1 * z)
+    s_role = ParagraphStyle("role", fontName="Helvetica-Bold", fontSize=10 * z, leading=12.6 * z)
+    s_date = ParagraphStyle("date", fontName="Helvetica", fontSize=9.5 * z, leading=12.6 * z, alignment=TA_RIGHT, textColor=colors.HexColor("#444444"))
+    s_bullet = ParagraphStyle("bullet", parent=s_body, leftIndent=13 * z, bulletIndent=3 * z, spaceAfter=1.2 * z)
 
     def markup(text: str) -> str:
         out = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -109,7 +120,7 @@ def to_pdf(md: str) -> bytes:
 
     for section in doc["sections"]:
         story.append(Paragraph(section["title"].upper(), s_h2))
-        story.append(HRFlowable(width="100%", thickness=0.7, color=colors.HexColor("#999999"), spaceAfter=3))
+        story.append(HRFlowable(width="100%", thickness=0.7, color=colors.HexColor("#999999"), spaceAfter=3 * z))
         for item in section["items"]:
             if item[0] == "role":
                 row = Table(
@@ -119,7 +130,7 @@ def to_pdf(md: str) -> bytes:
                 row.setStyle(TableStyle([
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),
                     ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3 * z),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ]))
@@ -128,10 +139,10 @@ def to_pdf(md: str) -> bytes:
                 story.append(Paragraph(markup(item[1]), s_bullet, bulletText="•"))
             else:
                 story.append(Paragraph(markup(item[1]), s_body))
-        story.append(Spacer(1, 2))
+        story.append(Spacer(1, 2 * z))
 
     pdf.build(story)
-    return buf.getvalue()
+    return buf.getvalue(), pdf.page
 
 
 # ---------------------------------------------------------------- DOCX

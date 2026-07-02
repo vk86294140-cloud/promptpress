@@ -1,23 +1,33 @@
-"""Provider abstraction: Anthropic (preferred), OpenAI (fallback), Demo (no key).
+"""Provider abstraction: Anthropic, OpenAI, Groq, or Demo (no key).
 
-Set ANTHROPIC_API_KEY or OPENAI_API_KEY. If both are set, Anthropic wins.
-Override with RESUME_PROVIDER=anthropic|openai|demo and RESUME_MODEL=<model-id>.
+Detection order: RESUME_PROVIDER override, then ANTHROPIC_API_KEY, then
+OPENAI_API_KEY, then GROQ_API_KEY, then demo mode.
+Override the model with RESUME_MODEL=<model-id>.
+
+Cost per tailored resume (3-7 calls, ~5-15K tokens):
+  groq  llama-3.3-70b        ~ free tier / <1 cent
+  anthropic claude-sonnet-5  ~ 5-15 cents   (default: best quality/cost)
+  anthropic claude-opus-4-8  ~ 50c-1 dollar (RESUME_MODEL=claude-opus-4-8)
 """
 
 import os
 
-DEFAULT_ANTHROPIC_MODEL = "claude-opus-4-8"
+DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5"
 DEFAULT_OPENAI_MODEL = "gpt-4o"
+DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 
 def detect_provider() -> str:
     forced = os.environ.get("RESUME_PROVIDER", "").strip().lower()
-    if forced in ("anthropic", "openai", "demo"):
+    if forced in ("anthropic", "openai", "groq", "demo"):
         return forced
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "anthropic"
     if os.environ.get("OPENAI_API_KEY"):
         return "openai"
+    if os.environ.get("GROQ_API_KEY"):
+        return "groq"
     return "demo"
 
 
@@ -26,11 +36,11 @@ def active_model() -> str:
     override = os.environ.get("RESUME_MODEL", "").strip()
     if override:
         return override
-    if provider == "anthropic":
-        return DEFAULT_ANTHROPIC_MODEL
-    if provider == "openai":
-        return DEFAULT_OPENAI_MODEL
-    return "demo"
+    return {
+        "anthropic": DEFAULT_ANTHROPIC_MODEL,
+        "openai": DEFAULT_OPENAI_MODEL,
+        "groq": DEFAULT_GROQ_MODEL,
+    }.get(provider, "demo")
 
 
 def complete(system: str, user: str, max_tokens: int = 4096, kind: str = "text") -> str:
@@ -39,7 +49,10 @@ def complete(system: str, user: str, max_tokens: int = 4096, kind: str = "text")
     if provider == "anthropic":
         return _anthropic(system, user, max_tokens)
     if provider == "openai":
-        return _openai(system, user, max_tokens)
+        return _openai_compatible(system, user, max_tokens)
+    if provider == "groq":
+        return _openai_compatible(system, user, max_tokens, base_url=GROQ_BASE_URL,
+                                  api_key=os.environ.get("GROQ_API_KEY"))
     return _demo(kind)
 
 
@@ -59,10 +72,11 @@ def _anthropic(system: str, user: str, max_tokens: int) -> str:
     return "".join(block.text for block in response.content if block.type == "text")
 
 
-def _openai(system: str, user: str, max_tokens: int) -> str:
+def _openai_compatible(system: str, user: str, max_tokens: int,
+                       base_url: str = None, api_key: str = None) -> str:
     from openai import OpenAI
 
-    client = OpenAI()
+    client = OpenAI(base_url=base_url, api_key=api_key) if base_url else OpenAI()
     response = client.chat.completions.create(
         model=active_model(),
         max_tokens=max_tokens,
