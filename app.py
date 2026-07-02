@@ -6,6 +6,7 @@ Open: http://localhost:8080
 
 import datetime
 import json
+import os
 import re
 from pathlib import Path
 
@@ -67,6 +68,14 @@ def save_master(body: MasterResume):
 
 @app.post("/api/tailor")
 def tailor(body: TailorRequest):
+    if llm.detect_provider() == "demo" and os.environ.get("RESUME_PROVIDER", "").lower() != "demo":
+        raise HTTPException(
+            400,
+            "NO API KEY FOUND — refusing to generate a fake sample resume. In the SAME "
+            "PowerShell window that runs the server, set your real key first: "
+            '$env:RESUME_PROVIDER = "groq" and $env:GROQ_API_KEY = "gsk_..." '
+            "(or $env:ANTHROPIC_API_KEY = \"sk-ant-...\"), then restart uvicorn.",
+        )
     jd = body.job_description.strip()
     if len(jd) < 80:
         raise HTTPException(400, "That doesn't look like a full job description. Paste the whole posting.")

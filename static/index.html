@@ -14,6 +14,7 @@
   header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line)}
   header h1{font-size:17px;margin:0;font-weight:600}
   #status{margin-left:auto;color:var(--muted);font-size:12px;background:var(--panel2);border:1px solid var(--line);padding:4px 10px;border-radius:20px}
+  #status.demo{background:#5a1f1f;color:#ffb4b4;border-color:#a04040;font-weight:700}
   nav{display:flex;gap:4px;padding:10px 22px 0}
   nav button{background:none;border:none;color:var(--muted);padding:8px 14px;cursor:pointer;font-size:14px;border-bottom:2px solid transparent}
   nav button.active{color:var(--text);border-bottom-color:var(--accent)}
@@ -137,8 +138,9 @@ async function loadStatus(){
   try{
     const s = await (await fetch("/api/status")).json();
     $("status").textContent = s.provider === "demo"
-      ? "demo mode — set ANTHROPIC_API_KEY (or OPENAI_API_KEY) and restart"
+      ? "NO API KEY — this window's server has no GROQ/ANTHROPIC key. Fix env vars and restart!"
       : `${s.provider} · ${s.model}`;
+    $("status").classList.toggle("demo", s.provider === "demo");
     if (!s.has_master_resume){
       $("msg").className = "err";
       $("msg").textContent = "First step: open the “My Resume” tab and save your master resume.";
