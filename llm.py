@@ -1,7 +1,8 @@
 """Provider abstraction: Anthropic, OpenAI, Groq, NVIDIA, or Demo (no key).
 
-Detection order: RESUME_PROVIDER override, then ANTHROPIC_API_KEY, then
-OPENAI_API_KEY, then GROQ_API_KEY, then NVIDIA_API_KEY, then demo mode.
+Detection order: RESUME_PROVIDER override, then NVIDIA_API_KEY, then
+GROQ_API_KEY, then ANTHROPIC_API_KEY, then OPENAI_API_KEY, then demo mode —
+free providers first, Claude kept as the paid quality option.
 Override the model with RESUME_MODEL=<model-id>.
 
 Cost per tailored resume (2-5 calls, ~5-15K tokens):
@@ -25,14 +26,14 @@ def detect_provider() -> str:
     forced = os.environ.get("RESUME_PROVIDER", "").strip().lower()
     if forced in ("anthropic", "openai", "groq", "nvidia", "demo"):
         return forced
+    if os.environ.get("NVIDIA_API_KEY"):
+        return "nvidia"
+    if os.environ.get("GROQ_API_KEY"):
+        return "groq"
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "anthropic"
     if os.environ.get("OPENAI_API_KEY"):
         return "openai"
-    if os.environ.get("GROQ_API_KEY"):
-        return "groq"
-    if os.environ.get("NVIDIA_API_KEY"):
-        return "nvidia"
     return "demo"
 
 
