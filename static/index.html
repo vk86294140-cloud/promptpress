@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resume Tailor</title>
+<style>
+  :root{
+    --bg:#101418; --panel:#181e25; --panel2:#1f2731; --line:#2c3642;
+    --text:#e8edf2; --muted:#8b98a5; --accent:#4c9be8; --good:#3fb96a; --warn:#e0a63c; --bad:#e05c5c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line)}
+  header h1{font-size:17px;margin:0;font-weight:600}
+  #status{margin-left:auto;color:var(--muted);font-size:12px;background:var(--panel2);border:1px solid var(--line);padding:4px 10px;border-radius:20px}
+  nav{display:flex;gap:4px;padding:10px 22px 0}
+  nav button{background:none;border:none;color:var(--muted);padding:8px 14px;cursor:pointer;font-size:14px;border-bottom:2px solid transparent}
+  nav button.active{color:var(--text);border-bottom-color:var(--accent)}
+  main{padding:18px 22px;max-width:1400px;margin:0 auto}
+  .tab{display:none}
+  .tab.active{display:block}
+  .cols{display:grid;grid-template-columns:minmax(320px,44%) 1fr;gap:20px}
+  @media(max-width:900px){.cols{grid-template-columns:1fr}}
+  textarea{width:100%;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:12px;font:13px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
+  #jd{height:420px}
+  #master{height:560px}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:wait}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line);font-weight:400}
+  .row{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .hint{color:var(--muted);font-size:12px}
+  #msg{margin-top:10px;font-size:13px;min-height:18px}
+  #msg.err{color:var(--bad)} #msg.ok{color:var(--good)}
+  .scorecard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px;display:none}
+  .scorecard h3{margin:0 0 10px;font-size:14px;font-weight:600}
+  .meter{display:grid;grid-template-columns:130px 1fr 42px;gap:10px;align-items:center;margin:6px 0;font-size:13px}
+  .bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:4px;background:var(--bad);transition:width .5s}
+  .bar i.good{background:var(--good)} .bar i.warn{background:var(--warn)}
+  .missing{margin-top:10px;font-size:12px;color:var(--muted)}
+  .missing b{color:var(--warn);font-weight:600}
+  #sheetwrap{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:24px;overflow:auto}
+  #sheet{background:#fff;color:#1a1a1a;width:8.5in;min-height:11in;max-width:100%;margin:0 auto;padding:.5in .6in;box-shadow:0 6px 24px rgba(0,0,0,.45);font:10.5pt/1.36 Calibri,Arial,Helvetica,sans-serif}
+  #sheet h1{font-size:18pt;margin:0 0 2pt;letter-spacing:.2px}
+  #sheet .contact{font-size:9.5pt;color:#333;margin-bottom:8pt}
+  #sheet .contact a{color:#1a56b0}
+  #sheet h2{font-size:10.5pt;text-transform:uppercase;letter-spacing:1.1px;border-bottom:1px solid #999;margin:11pt 0 5pt;padding-bottom:2pt}
+  #sheet p{margin:4pt 0}
+  #sheet ul{margin:2pt 0 7pt;padding-left:16pt}
+  #sheet li{margin:1.5pt 0}
+  #sheet .role{margin:7pt 0 1pt;display:flex;justify-content:space-between;gap:12px}
+  #sheet .role b{font-size:10.5pt}
+  #sheet .role span{color:#555;font-size:9.5pt;white-space:nowrap}
+  #placeholder{color:var(--muted);text-align:center;padding:60px 20px;font-size:13px}
+  .histitem{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer;display:flex;gap:12px;align-items:center}
+  .histitem:hover{border-color:var(--accent)}
+  .histitem .score{margin-left:auto;font-weight:700}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:r .7s linear infinite;vertical-align:-2px;margin-right:8px}
+  @keyframes r{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Resume Tailor</h1>
+  <span id="status">checking…</span>
+</header>
+<nav>
+  <button data-tab="tailor" class="active">Tailor</button>
+  <button data-tab="master">My Resume</button>
+  <button data-tab="history">History</button>
+</nav>
+<main>
+
+  <section id="tab-tailor" class="tab active">
+    <div class="cols">
+      <div>
+        <textarea id="jd" placeholder="Paste the full job description here, then press Ctrl+Enter (or click the button)."></textarea>
+        <div class="row">
+          <button class="btn" id="go">Tailor my resume</button>
+          <span class="hint">Ctrl+Enter works too. Takes ~30–90s: it writes, scores itself as a recruiter, and revises until every dimension is ≥ 85%.</span>
+        </div>
+        <div id="msg"></div>
+      </div>
+      <div>
+        <div class="scorecard" id="scorecard">
+          <h3 id="scoretitle">Match</h3>
+          <div class="meter"><span>Skills</span><div class="bar"><i id="b-skills"></i></div><span id="v-skills"></span></div>
+          <div class="meter"><span>Experience</span><div class="bar"><i id="b-exp"></i></div><span id="v-exp"></span></div>
+          <div class="meter"><span>Industry</span><div class="bar"><i id="b-ind"></i></div><span id="v-ind"></span></div>
+          <div class="meter"><span><b>Overall</b></span><div class="bar"><i id="b-all"></i></div><span id="v-all"></span></div>
+          <div class="missing" id="missing"></div>
+          <div class="row">
+            <button class="btn" id="dlpdf">Download PDF</button>
+            <button class="btn" id="dldocx">Download DOCX</button>
+            <button class="btn ghost" id="copy">Copy text</button>
+            <button class="btn ghost" id="dlmd">Download .md</button>
+          </div>
+          <p class="hint" style="margin:8px 0 0">DOCX is the safest format for ATS portals; the PDF is text-based with standard fonts, fine everywhere else.</p>
+        </div>
+        <div id="sheetwrap">
+          <div id="sheet"><div id="placeholder">Your tailored one-page resume will render here.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-master" class="tab">
+    <p class="hint" style="max-width:760px">Paste your <b>master resume</b> once: everything you've ever done — all jobs, projects, skills, metrics, education, certifications. The more real detail here, the better each tailored resume gets. Plain text is fine. <b>The AI only ever uses facts from this document — it never invents experience.</b></p>
+    <textarea id="master" placeholder="Full name, contact info, every role with dates and real accomplishments, skills, education..."></textarea>
+    <div class="row">
+      <button class="btn" id="savemaster">Save master resume</button>
+      <span class="hint" id="mastermsg"></span>
+    </div>
+  </section>
+
+  <section id="tab-history" class="tab">
+    <div id="histlist"><p class="hint">Nothing generated yet.</p></div>
+  </section>
+
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let lastMarkdown = "", lastName = "resume";
+
+// ---- tabs ----
+document.querySelectorAll("nav button").forEach(btn => btn.onclick = () => {
+  document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  btn.classList.add("active");
+  $("tab-" + btn.dataset.tab).classList.add("active");
+  if (btn.dataset.tab === "history") loadHistory();
+});
+
+// ---- status + master resume ----
+async function loadStatus(){
+  try{
+    const s = await (await fetch("/api/status")).json();
+    $("status").textContent = s.provider === "demo"
+      ? "demo mode — set ANTHROPIC_API_KEY (or OPENAI_API_KEY) and restart"
+      : `${s.provider} · ${s.model}`;
+    if (!s.has_master_resume){
+      $("msg").className = "err";
+      $("msg").textContent = "First step: open the “My Resume” tab and save your master resume.";
+    }
+  }catch{ $("status").textContent = "server unreachable"; }
+}
+async function loadMaster(){
+  const d = await (await fetch("/api/master")).json();
+  $("master").value = d.text || "";
+}
+$("savemaster").onclick = async () => {
+  const r = await fetch("/api/master", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({text: $("master").value})});
+  const d = await r.json();
+  $("mastermsg").textContent = r.ok ? `Saved (${d.chars.toLocaleString()} characters).` : "Save failed.";
+  loadStatus();
+};
+
+// ---- markdown -> resume HTML ----
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function inline(s){ return esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>"); }
+function contactHtml(line){
+  return line.split("|").map(tok => {
+    const t = tok.trim(), low = t.toLowerCase();
+    if (t.includes("@") && !low.includes("linkedin") && !low.includes("github") && !t.includes(" "))
+      return `<a href="mailto:${esc(t)}">${esc(t)}</a>`;
+    if (/linkedin\.com|github\.com|^https?:\/\/|^www\./.test(low)){
+      const url = low.startsWith("http") ? t : "https://" + t;
+      return `<a href="${esc(url)}" target="_blank">${esc(t.replace(/^https?:\/\/(www\.)?/,""))}</a>`;
+    }
+    return esc(t);
+  }).join(" | ");
+}
+function render(md){
+  const lines = md.split(/\r?\n/); let html = "", inList = false, afterName = false;
+  const closeList = () => { if(inList){ html += "</ul>"; inList = false; } };
+  for (const raw of lines){
+    const line = raw.trimEnd();
+    if (!line.trim()){ closeList(); afterName = false; continue; }
+    if (line.startsWith("## ")){ closeList(); html += `<h2>${inline(line.slice(3))}</h2>`; }
+    else if (line.startsWith("# ")){ closeList(); html += `<h1>${inline(line.slice(2))}</h1>`; afterName = true; }
+    else if (/^[-*] /.test(line)){ if(!inList){ html += "<ul>"; inList = true; } html += `<li>${inline(line.replace(/^[-*] /,""))}</li>`; }
+    else if (afterName){ html += `<p class="contact">${contactHtml(line)}</p>`; afterName = false; }
+    else if (/^\*\*[^*]+\*\*\s*\|/.test(line) && !/^\*\*[^*]*:\*\*/.test(line)){
+      const [left, ...rest] = line.split("|");
+      html += `<p class="role"><b>${inline(left.trim()).replace(/<\/?b>/g,"")}</b><span>${inline(rest.join("|").trim())}</span></p>`;
+    }
+    else { html += `<p>${inline(line)}</p>`; }
+  }
+  closeList();
+  return html;
+}
+
+// ---- scores ----
+function paintScores(sc){
+  $("scorecard").style.display = "block";
+  $("scoretitle").textContent = [sc.job_title, sc.company].filter(Boolean).join(" @ ") || "Match";
+  const pairs = [["skills", sc.skills_match], ["exp", sc.experience_match], ["ind", sc.industry_match], ["all", sc.overall]];
+  for (const [k, v] of pairs){
+    const bar = $("b-" + k);
+    bar.style.width = v + "%";
+    bar.className = v >= 85 ? "good" : v >= 70 ? "warn" : "";
+    $("v-" + k).textContent = v + "%";
+  }
+  $("missing").innerHTML = (sc.missing_keywords || []).length
+    ? `<b>Not in your background (be ready to address):</b> ${sc.missing_keywords.map(esc).join(", ")}` : "";
+}
+
+// ---- tailor ----
+async function tailor(){
+  const jd = $("jd").value.trim();
+  const btn = $("go"), msg = $("msg");
+  if (jd.length < 80){ msg.className = "err"; msg.textContent = "Paste the full job description first."; return; }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>Working…';
+  msg.className = ""; msg.textContent = "Writing, then scoring as a recruiter, revising if under 85%…";
+  try{
+    const r = await fetch("/api/tailor", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({job_description: jd})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Request failed");
+    lastMarkdown = d.resume_markdown; lastName = d.saved_as || "resume";
+    $("sheet").innerHTML = render(d.resume_markdown);
+    paintScores(d.scores);
+    msg.className = d.target_met ? "ok" : "err";
+    msg.textContent = d.target_met
+      ? `Done — all dimensions ≥ 85% (${d.revisions} revision${d.revisions === 1 ? "" : "s"}). Saved as ${d.saved_as}.`
+      : "Done, but the honest ceiling for this JD is below 85% on some dimensions — the gap list shows why. Nothing was fabricated to force the score.";
+  }catch(e){ msg.className = "err"; msg.textContent = e.message; }
+  btn.disabled = false; btn.textContent = "Tailor my resume";
+}
+$("go").onclick = tailor;
+$("jd").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); tailor(); } });
+
+// ---- export ----
+$("dlpdf").onclick  = () => { if (lastName !== "resume") location.href = `/api/download/${encodeURIComponent(lastName)}/pdf`; };
+$("dldocx").onclick = () => { if (lastName !== "resume") location.href = `/api/download/${encodeURIComponent(lastName)}/docx`; };
+$("copy").onclick = async () => { await navigator.clipboard.writeText(lastMarkdown); $("copy").textContent = "Copied!"; setTimeout(() => $("copy").textContent = "Copy text", 1200); };
+$("dlmd").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lastMarkdown], {type:"text/markdown"}));
+  a.download = lastName + ".md"; a.click(); URL.revokeObjectURL(a.href);
+};
+
+// ---- history ----
+async function loadHistory(){
+  const d = await (await fetch("/api/history")).json();
+  const box = $("histlist");
+  if (!d.items.length){ box.innerHTML = '<p class="hint">Nothing generated yet.</p>'; return; }
+  box.innerHTML = "";
+  for (const it of d.items){
+    const el = document.createElement("div");
+    el.className = "histitem";
+    el.innerHTML = `<span>${esc([it.job_title, it.company].filter(Boolean).join(" @ ") || it.name)}</span><span class="score">${it.overall}%</span>`;
+    el.onclick = async () => {
+      const full = await (await fetch("/api/history/" + encodeURIComponent(it.name))).json();
+      lastMarkdown = full.resume_markdown; lastName = it.name;
+      $("sheet").innerHTML = render(full.resume_markdown);
+      paintScores(full.scores);
+      document.querySelector('nav button[data-tab="tailor"]').click();
+    };
+    box.appendChild(el);
+  }
+}
+
+loadStatus(); loadMaster();
+</script>
+</body>
+</html>
