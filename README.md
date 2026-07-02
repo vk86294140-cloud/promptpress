@@ -132,7 +132,7 @@ The **Find Jobs** tab searches live job boards and ranks every listing by keywor
 fit against your master resume — instantly and at zero AI cost. One click on
 "Tailor" turns a listing into a tailored resume; "Apply link" opens the posting.
 
-- **Remotive, RemoteOK, Jobicy** (remote jobs): work out of the box, no keys.
+- **Remotive, RemoteOK, Jobicy** (remote) and **The Muse** (incl. on-site US jobs): work out of the box, no keys.
 - **Adzuna** (US + 15 countries, salary data, on-site jobs): free key from
   developer.adzuna.com — set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`
   (and optionally `ADZUNA_COUNTRY`, default `us`) on the server.

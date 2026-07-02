@@ -5,6 +5,7 @@ Sources (all fetched in one search, merged and de-duplicated):
 - Remotive (remote jobs, full descriptions) — no API key needed
 - RemoteOK (remote jobs, epoch timestamps) — no API key needed
 - Jobicy (remote jobs) — no API key needed
+- The Muse (US on-site/hybrid + remote, all professions) — no API key needed
 - Adzuna (16 countries, salary data) — free key from developer.adzuna.com
   via ADZUNA_APP_ID + ADZUNA_APP_KEY
 - JSearch via RapidAPI (Google-for-Jobs: LinkedIn/Indeed/Glassdoor postings,
@@ -109,6 +110,32 @@ def _jobicy(query: str):
             "posted_epoch": _epoch(j.get("pubDate", "")),
             "description": desc[:8000],
         })
+    return jobs
+
+
+def _themuse(query: str, location: str):
+    """The Muse public API — keyless source that includes NON-remote US jobs."""
+    jobs = []
+    for page in (1, 2):
+        data = _get_json(f"https://www.themuse.com/api/public/jobs?page={page}")
+        for j in data.get("results", []):
+            title = j.get("name", "")
+            desc = _strip_html(j.get("contents", ""))
+            locs = ", ".join(l.get("name", "") for l in (j.get("locations") or []))
+            if not _matches(query, title, desc[:1500]):
+                continue
+            if location and location.lower() not in locs.lower() and "flexible" not in locs.lower():
+                continue
+            jobs.append({
+                "title": title,
+                "company": (j.get("company") or {}).get("name", ""),
+                "location": locs,
+                "salary": "",
+                "url": (j.get("refs") or {}).get("landing_page", ""),
+                "source": "themuse",
+                "posted_epoch": _epoch(j.get("publication_date", "")),
+                "description": desc[:8000],
+            })
     return jobs
 
 
@@ -223,6 +250,7 @@ def search(query: str, location: str, master_resume: str,
                         ("remotive", lambda: _remotive(query)),
                         ("remoteok", lambda: _remoteok(query)),
                         ("jobicy", lambda: _jobicy(query)),
+                        ("themuse", lambda: _themuse(query, location)),
                         ("adzuna", lambda: _adzuna(query, location))):
         try:
             jobs.extend(fetch())
