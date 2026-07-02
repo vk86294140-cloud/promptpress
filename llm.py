@@ -60,22 +60,22 @@ def active_model() -> str:
     }.get(provider, "demo")
 
 
-def complete(system: str, user: str, max_tokens: int = 4096, kind: str = "text") -> str:
+def complete(system: str, user: str, max_tokens: int = 4096, kind: str = "text", temperature: float = None) -> str:
     """One LLM call. `kind` is only used by the demo provider to fake sensible output."""
     provider = detect_provider()
     if provider == "anthropic":
         return _anthropic(system, user, max_tokens)
     if provider == "openai":
-        return _openai_compatible(system, user, max_tokens)
+        return _openai_compatible(system, user, max_tokens, temperature=temperature)
     if provider == "groq":
         return _openai_compatible(system, user, max_tokens, base_url=GROQ_BASE_URL,
-                                  api_key=os.environ.get("GROQ_API_KEY"))
+                                  api_key=os.environ.get("GROQ_API_KEY"), temperature=temperature)
     if provider == "nvidia":
         return _openai_compatible(system, user, max_tokens, base_url=NVIDIA_BASE_URL,
-                                  api_key=os.environ.get("NVIDIA_API_KEY"))
+                                  api_key=os.environ.get("NVIDIA_API_KEY"), temperature=temperature)
     if provider == "gemini":
         return _openai_compatible(system, user, max_tokens, base_url=GEMINI_BASE_URL,
-                                  api_key=os.environ.get("GEMINI_API_KEY"))
+                                  api_key=os.environ.get("GEMINI_API_KEY"), temperature=temperature)
     if provider == "custom":
         base = os.environ.get("RESUME_BASE_URL", "").strip()
         if not base or not os.environ.get("RESUME_MODEL"):
@@ -84,7 +84,7 @@ def complete(system: str, user: str, max_tokens: int = 4096, kind: str = "text")
                 "set to what your service (e.g. ZenMux) documents."
             )
         return _openai_compatible(system, user, max_tokens, base_url=base,
-                                  api_key=os.environ.get("RESUME_API_KEY", "none"))
+                                  api_key=os.environ.get("RESUME_API_KEY", "none"), temperature=temperature)
     return _demo(kind)
 
 
@@ -105,10 +105,14 @@ def _anthropic(system: str, user: str, max_tokens: int) -> str:
 
 
 def _openai_compatible(system: str, user: str, max_tokens: int,
-                       base_url: str = None, api_key: str = None) -> str:
+                       base_url: str = None, api_key: str = None,
+                       temperature: float = None) -> str:
     from openai import OpenAI
 
     client = OpenAI(base_url=base_url, api_key=api_key) if base_url else OpenAI()
+    kwargs = {}
+    if temperature is not None:
+        kwargs["temperature"] = temperature
     response = client.chat.completions.create(
         model=active_model(),
         max_tokens=max_tokens,
@@ -116,6 +120,7 @@ def _openai_compatible(system: str, user: str, max_tokens: int,
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
+        **kwargs,
     )
     return response.choices[0].message.content or ""
 

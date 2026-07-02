@@ -113,6 +113,31 @@ titles, skills, or metrics you don't have. Missing JD requirements show up in
 the "Not in your background" list so you can prepare to address them in an
 interview instead of being surprised.
 
+## Go live (share with friends, free)
+
+The app is deployable as-is. Recommended: **Render.com free tier** (no card needed).
+
+1. Push this code to your GitHub repo (`resume-tailor`).
+2. Go to render.com → New → **Blueprint** → connect the repo (it reads `render.yaml`).
+3. When asked, set two environment variables:
+   - `APP_PASSWORD` — the shared access key you'll give friends
+   - `NVIDIA_API_KEY` (or `GROQ_API_KEY` / `GEMINI_API_KEY`) — the free LLM key everyone shares
+4. Deploy. You get a URL like `https://resume-tailor-xxxx.onrender.com`.
+5. Send friends the URL + the access key.
+
+Each visitor enters a first name once (their own private workspace: own master
+resume, own history — nobody sees anyone else's data) and the access key once.
+Both are remembered by their browser.
+
+Security model (right-sized for a private 10-user app): one shared access key on
+every API route, per-user data isolation, filename sanitization on all paths, no
+accounts/emails stored, HTTPS provided by Render. Don't post the URL publicly —
+anyone with URL + key can use your LLM quota.
+
+Free-tier notes: the service sleeps after ~15 idle minutes (first request takes
+~40s to wake) and the 1GB disk keeps everyone's data across restarts.
+Alternatives: Fly.io (`fly launch` — reads the Dockerfile) or any Docker host.
+
 ## Tests
 
 ```bash

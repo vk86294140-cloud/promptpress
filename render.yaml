@@ -1,0 +1,15 @@
+# One-click blueprint for render.com (free tier)
+services:
+  - type: web
+    name: resume-tailor
+    runtime: docker
+    plan: free
+    envVars:
+      - key: APP_PASSWORD          # the shared access key for your friends
+        sync: false
+      - key: NVIDIA_API_KEY        # or GROQ_API_KEY / GEMINI_API_KEY
+        sync: false
+    disk:
+      name: resume-data
+      mountPath: /app/data
+      sizeGB: 1

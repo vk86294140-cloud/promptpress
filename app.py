@@ -10,7 +10,7 @@ import os
 import re
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
@@ -21,10 +21,32 @@ import render
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-OUTPUT_DIR = DATA_DIR / "outputs"
-MASTER_FILE = DATA_DIR / "master_resume.txt"
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 
 app = FastAPI(title="Resume Tailor")
+
+
+def _check_auth(request):
+    """Shared-password gate for hosted deployments. No APP_PASSWORD = open (local use)."""
+    if APP_PASSWORD and request.headers.get("x-app-key", "") != APP_PASSWORD:
+        raise HTTPException(401, "Access key required. Ask the person who shared this app for the key.")
+
+
+def _user_slug(request) -> str:
+    raw = (request.headers.get("x-user") or "default").lower()
+    return re.sub(r"[^a-z0-9-]", "", raw)[:32] or "default"
+
+
+def _master_file(user: str) -> Path:
+    f = DATA_DIR / "users" / user / "master_resume.txt"
+    legacy = DATA_DIR / "master_resume.txt"
+    if user == "default" and not f.exists() and legacy.exists():
+        return legacy  # pre-multiuser installs keep working
+    return f
+
+
+def _output_dir(user: str) -> Path:
+    return DATA_DIR / "users" / user / "outputs"
 
 
 class MasterResume(BaseModel):
@@ -62,37 +84,48 @@ def index():
 
 
 @app.get("/api/status")
-def status():
+def status(request: Request):
+    user = _user_slug(request)
+    mf = _master_file(user)
     return {
         "provider": llm.detect_provider(),
         "model": llm.active_model(),
-        "has_master_resume": MASTER_FILE.exists() and MASTER_FILE.stat().st_size > 0,
+        "needs_key": bool(APP_PASSWORD),
+        "user": user,
+        "has_master_resume": mf.exists() and mf.stat().st_size > 0,
     }
 
 
 @app.get("/api/master")
-def get_master():
-    text = MASTER_FILE.read_text(encoding="utf-8") if MASTER_FILE.exists() else ""
+def get_master(request: Request):
+    _check_auth(request)
+    mf = _master_file(_user_slug(request))
+    text = mf.read_text(encoding="utf-8") if mf.exists() else ""
     return {"text": text}
 
 
 @app.post("/api/master")
-def save_master(body: MasterResume):
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    MASTER_FILE.write_text(body.text, encoding="utf-8")
+def save_master(body: MasterResume, request: Request):
+    _check_auth(request)
+    mf = DATA_DIR / "users" / _user_slug(request) / "master_resume.txt"
+    mf.parent.mkdir(parents=True, exist_ok=True)
+    mf.write_text(body.text, encoding="utf-8")
     return {"saved": True, "chars": len(body.text)}
 
 
 @app.post("/api/tailor")
-def tailor(body: TailorRequest):
+def tailor(body: TailorRequest, request: Request):
+    _check_auth(request)
     _require_api_key()
+    user = _user_slug(request)
+    mf = _master_file(user)
     jd = body.job_description.strip()
     if len(jd) < 80:
         raise HTTPException(400, "That doesn't look like a full job description. Paste the whole posting.")
-    if not MASTER_FILE.exists() or not MASTER_FILE.read_text(encoding="utf-8").strip():
+    if not mf.exists() or not mf.read_text(encoding="utf-8").strip():
         raise HTTPException(400, "Save your master resume first (My Resume tab).")
 
-    master = MASTER_FILE.read_text(encoding="utf-8")
+    master = mf.read_text(encoding="utf-8")
     try:
         result = pipeline.tailor(jd, master)
     except Exception as exc:  # surface LLM/parse errors to the UI
@@ -100,9 +133,10 @@ def tailor(body: TailorRequest):
 
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     name = f"{stamp}-{_slug(result['scores'].get('company') or '')}-{_slug(result['scores'].get('job_title') or '')}"
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    (OUTPUT_DIR / f"{name}.md").write_text(result["resume_markdown"], encoding="utf-8")
-    (OUTPUT_DIR / f"{name}.json").write_text(
+    out = _output_dir(user)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / f"{name}.md").write_text(result["resume_markdown"], encoding="utf-8")
+    (out / f"{name}.json").write_text(
         json.dumps({**result, "job_description": jd}, indent=2), encoding="utf-8"
     )
     result["saved_as"] = name
@@ -110,11 +144,13 @@ def tailor(body: TailorRequest):
 
 
 @app.get("/api/history")
-def history():
-    if not OUTPUT_DIR.exists():
+def history(request: Request):
+    _check_auth(request)
+    out = _output_dir(_user_slug(request))
+    if not out.exists():
         return {"items": []}
     items = []
-    for meta in sorted(OUTPUT_DIR.glob("*.json"), reverse=True):
+    for meta in sorted(out.glob("*.json"), reverse=True):
         try:
             data = json.loads(meta.read_text(encoding="utf-8"))
             items.append({
@@ -129,8 +165,9 @@ def history():
 
 
 @app.post("/api/check")
-def check(body: CheckRequest):
+def check(body: CheckRequest, request: Request):
     """Score any existing resume against a JD and return section improvements."""
+    _check_auth(request)
     _require_api_key()
     jd = body.job_description.strip()
     resume = body.resume_text.strip()
@@ -155,8 +192,9 @@ class CoverDocxRequest(BaseModel):
 
 
 @app.post("/api/cover")
-def cover(body: CoverRequest):
+def cover(body: CoverRequest, request: Request):
     """Generate a matching cover letter from the tailored resume + JD."""
+    _check_auth(request)
     _require_api_key()
     jd = body.job_description.strip()
     resume = body.resume_markdown.strip()
@@ -173,7 +211,8 @@ def cover(body: CoverRequest):
 
 
 @app.post("/api/cover-docx")
-def cover_docx(body: CoverDocxRequest):
+def cover_docx(body: CoverDocxRequest, request: Request):
+    _check_auth(request)
     """Render already-generated letter text to DOCX (no LLM call)."""
     if len(body.letter_text.strip()) < 50:
         raise HTTPException(400, "No letter text.")
@@ -185,9 +224,14 @@ def cover_docx(body: CoverDocxRequest):
 
 
 @app.get("/api/download/{name}/{fmt}")
-def download(name: str, fmt: str):
+def download(name: str, fmt: str, request: Request, key: str = "", user: str = ""):
+    # downloads come from <a>/location navigation, which can't set headers —
+    # accept the credentials as query params too
+    if APP_PASSWORD and key != APP_PASSWORD and request.headers.get("x-app-key", "") != APP_PASSWORD:
+        raise HTTPException(401, "Access key required.")
+    u = re.sub(r"[^a-z0-9-]", "", (user or _user_slug(request)))[:32] or "default"
     safe = Path(name).name
-    md_path = OUTPUT_DIR / f"{safe}.md"
+    md_path = _output_dir(u) / f"{safe}.md"
     if not md_path.exists():
         raise HTTPException(404, "not found")
     md = md_path.read_text(encoding="utf-8")
@@ -206,10 +250,9 @@ def download(name: str, fmt: str):
 
 
 @app.get("/api/history/{name}")
-def history_item(name: str):
-    if _slug(name) != name.lower().replace("--", "-") and "/" in name:
-        raise HTTPException(400, "bad name")
-    path = OUTPUT_DIR / f"{Path(name).name}.json"
+def history_item(name: str, request: Request):
+    _check_auth(request)
+    path = _output_dir(_user_slug(request)) / f"{Path(name).name}.json"
     if not path.exists():
         raise HTTPException(404, "not found")
     return json.loads(path.read_text(encoding="utf-8"))

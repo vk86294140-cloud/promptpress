@@ -131,3 +131,15 @@ def test_gemini_and_custom_provider_detection(monkeypatch):
     assert llm.active_model() == "gemini-2.5-flash"
     monkeypatch.setenv("RESUME_BASE_URL", "https://zenmux.example/v1")
     assert llm.detect_provider() == "custom"
+
+
+def test_extract_json_repairs_sloppy_llm_output():
+    sloppy = """{
+  "job_title": "Engineer",
+  skills_match: 70,
+  "improvements": [
+    {"section": "skills", "fix": "add python"},
+  ],
+}"""
+    d = pipeline.extract_json(sloppy)
+    assert d["skills_match"] == 70 and d["improvements"][0]["section"] == "skills"
