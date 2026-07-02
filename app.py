@@ -1,6 +1,8 @@
 """Resume Tailor — paste a job description, get a one-page tailored resume.
 
-Run:  uvicorn app:app --port 8080     (from the resume_app directory)
+Local Windows use: double-click start.bat — it updates, installs, sets your
+saved keys from .env, and opens the browser for you.
+Manual run:  uvicorn app:app --port 8080     (from the resume_app directory)
 Open: http://localhost:8080
 """
 
@@ -13,6 +15,12 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # reads .env in this directory so keys survive across restarts
+except ImportError:
+    pass  # python-dotenv not installed yet — env vars still work if set another way
 
 import jobs as jobs_mod
 import llm

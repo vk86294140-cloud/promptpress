@@ -9,39 +9,47 @@ reached — it never invents experience to force a score).
 job description ─► writer (senior-recruiter prompt) ─► recruiter/ATS scorer ─► <85%? revise (max 2x) ─► one-page resume + scores
 ```
 
-## Getting updates
+## Running it — just double-click, no typing
 
-The app lives in a git repo — no zips. To update:
+**Windows:** double-click **`start.bat`** in the `resume_app` folder.
+**macOS/Linux:** double-click **`start.sh`** (or run `./start.sh` once to make it
+executable, then double-click).
 
-```powershell
-cd C:\Users\vamsi\Desktop\Job-Automation\resume_app
-git pull
-pip install -r requirements.txt   # in case dependencies changed
-```
+That single file does everything, every time:
+- Pulls the latest code and installs any new dependencies
+- First run only: creates the Python environment, then opens a template so you
+  can paste in one free API key (Notepad on Windows, your default editor on
+  Mac/Linux) — save and close it to continue
+- Starts the server and **opens your browser automatically** to
+  `http://localhost:8080`
 
-Your `data/` folder (master resume + generated outputs) is gitignored and never touched by updates.
+After the first run there is nothing to configure — every future launch is
+just: double-click, wait a few seconds, browser opens. Keep that window open
+while you use the app; closing it (or Ctrl+C) stops the server.
 
-## Setup (Windows PowerShell)
+Your key lives in a local `.env` file (copied from `.env.example` on first
+run) — it's gitignored, so it's never committed or pushed, and it survives
+every update since `start.bat`/`start.sh` never touch it after creating it.
+
+### Manual setup (if you prefer typing commands, or `start.bat` doesn't fit your setup)
 
 ```powershell
 cd C:\Users\vamsi\Desktop\Job-Automation\resume_app
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements.txt openai
 
 # Claude (recommended)
 $env:ANTHROPIC_API_KEY = "sk-ant-..."
 
-# or OpenAI instead
-# $env:OPENAI_API_KEY = "sk-..."
-# pip install openai
-
 uvicorn app:app --port 8080
 ```
 
-Open **http://localhost:8080**
+Open **http://localhost:8080**. macOS/Linux: `source .venv/bin/activate` and `export ANTHROPIC_API_KEY=...`.
 
-macOS/Linux: same thing with `source .venv/bin/activate` and `export ANTHROPIC_API_KEY=...`.
+To update manually: `git pull` then `pip install -r requirements.txt`. Your
+`data/` folder (master resume + generated outputs) is gitignored and never
+touched by updates.
 
 ## How to use
 
@@ -65,9 +73,14 @@ macOS/Linux: same thing with `source .venv/bin/activate` and `export ANTHROPIC_A
 
 ## Which API? Free first, Claude kept as the quality option
 
-Auto-detection order (first key found wins): **NVIDIA → Groq → Anthropic → OpenAI**.
+Auto-detection order (first key found wins): **NVIDIA → Groq → Gemini → Anthropic → OpenAI**.
 Set your NVIDIA key and everything runs free; keep your Anthropic key saved too —
 it is only used when you explicitly ask for it.
+
+**Easiest way to set any of these:** put them in your `.env` file (see
+[Running it](#running-it--just-double-click-no-typing) above) — `start.bat`/
+`start.sh` read it automatically, no PowerShell needed. The `$env:` commands
+below are only for the manual-setup path.
 
 | Priority | Provider  | Default model                 | Cost per resume | Notes |
 |----------|-----------|-------------------------------|-----------------|-------|
@@ -188,9 +201,15 @@ pip install pytest && pytest tests/ -q     # runs offline in demo mode, no API k
 
 ## Files
 
-- `app.py` — FastAPI server (UI, master resume storage, tailor endpoint, history)
+- `start.bat` / `start.sh` — double-click launcher (update, install, load `.env`, open browser)
+- `.env.example` — copy to `.env` and fill in your keys (gitignored, stays local)
+- `app.py` — FastAPI server (multi-user workspaces, auth, all endpoints)
 - `pipeline.py` — write → score → revise loop
 - `prompts.py` — recruiter writer / ATS scorer / reviser prompts + style rules
-- `llm.py` — Anthropic / OpenAI / demo provider switch
+- `llm.py` — NVIDIA / Groq / Gemini / Anthropic / OpenAI / custom provider switch
+- `ats.py` — deterministic (LLM-free) keyword/phrase scanner
+- `jobs.py` — job discovery (Remotive / Adzuna / JSearch), freshness filtering, fit ranking
+- `render.py` — ATS-safe PDF/DOCX/cover-letter rendering
 - `static/index.html` — the whole UI (no build step)
-- `data/` — your master resume + generated outputs (gitignored, stays local)
+- `Dockerfile` / `render.yaml` — deployment kit for going live (see [Go live](#go-live-share-with-friends-free))
+- `data/` — master resumes + generated outputs, per user (gitignored, stays local)
