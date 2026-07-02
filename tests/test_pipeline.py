@@ -143,3 +143,20 @@ def test_extract_json_repairs_sloppy_llm_output():
 }"""
     d = pipeline.extract_json(sloppy)
     assert d["skills_match"] == 70 and d["improvements"][0]["section"] == "skills"
+
+
+def test_job_ranking():
+    import jobs as jobs_mod
+    master = "Python engineer with AWS, Docker, machine learning, PyTorch experience"
+    listing = [
+        {"title": "Python ML Engineer", "company": "A", "description": "Python AWS machine learning PyTorch Docker " * 5},
+        {"title": "Accountant", "company": "B", "description": "bookkeeping ledgers accounting payroll taxes audits " * 5},
+    ]
+    ranked = jobs_mod.rank(listing, master)
+    assert ranked[0]["title"] == "Python ML Engineer"
+    assert ranked[0]["fit"] > ranked[1]["fit"]
+
+
+def test_job_html_strip():
+    import jobs as jobs_mod
+    assert jobs_mod._strip_html("<p>Python &amp; <b>AWS</b></p>") == "Python & AWS"

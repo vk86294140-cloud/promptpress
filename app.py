@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
+import jobs as jobs_mod
 import llm
 import pipeline
 import prompts
@@ -182,6 +183,11 @@ def check(body: CheckRequest, request: Request):
     return {"scores": scores, "provider": llm.detect_provider(), "model": llm.active_model()}
 
 
+class JobSearchRequest(BaseModel):
+    query: str
+    location: str = ""
+
+
 class CoverRequest(BaseModel):
     job_description: str
     resume_markdown: str
@@ -189,6 +195,24 @@ class CoverRequest(BaseModel):
 
 class CoverDocxRequest(BaseModel):
     letter_text: str
+
+
+@app.post("/api/jobs")
+def find_jobs(body: JobSearchRequest, request: Request):
+    """Search live job boards, ranked by keyword fit with the master resume. No LLM cost."""
+    _check_auth(request)
+    user = _user_slug(request)
+    mf = _master_file(user)
+    if not mf.exists() or not mf.read_text(encoding="utf-8").strip():
+        raise HTTPException(400, "Save your master resume first (My Resume tab) so jobs can be ranked by fit.")
+    query = body.query.strip()
+    if len(query) < 3:
+        raise HTTPException(400, "Enter a job title to search for.")
+    master = mf.read_text(encoding="utf-8")
+    try:
+        return jobs_mod.search(query, body.location.strip(), master)
+    except Exception as exc:
+        raise HTTPException(502, f"Job search failed: {exc}") from exc
 
 
 @app.post("/api/cover")

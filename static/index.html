@@ -69,6 +69,7 @@
 <nav>
   <button data-tab="tailor" class="active">Tailor</button>
   <button data-tab="master">My Resume</button>
+  <button data-tab="jobs">Find Jobs</button>
   <button data-tab="history">History</button>
 </nav>
 <main>
@@ -128,6 +129,17 @@
       <button class="btn" id="savemaster">Save master resume</button>
       <span class="hint" id="mastermsg"></span>
     </div>
+  </section>
+
+  <section id="tab-jobs" class="tab">
+    <div class="row" style="margin-top:0">
+      <input id="jobquery" placeholder="Job title (e.g. Machine Learning Engineer)" style="flex:1;min-width:220px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:14px">
+      <input id="jobloc" placeholder="Location (optional)" style="width:200px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:14px">
+      <button class="btn" id="jobsearch">Search</button>
+    </div>
+    <p class="hint">Searches Remotive (remote jobs, no key) — and Adzuna's 16-country board when ADZUNA_APP_ID/ADZUNA_APP_KEY are set on the server (free at developer.adzuna.com). Every result is instantly fit-scored against your master resume; no AI cost.</p>
+    <div id="jobmsg" class="hint" style="min-height:18px"></div>
+    <div id="joblist"></div>
   </section>
 
   <section id="tab-history" class="tab">
@@ -358,6 +370,39 @@ async function loadHistory(){
     box.appendChild(el);
   }
 }
+
+// ---- job discovery ----
+$("jobsearch").onclick = async () => {
+  const btn = $("jobsearch"), box = $("joblist"), msg = $("jobmsg");
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Searching…';
+  msg.textContent = ""; box.innerHTML = "";
+  try{
+    const r = await api("/api/jobs", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({query: $("jobquery").value.trim(), location: $("jobloc").value.trim()})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Search failed");
+    if (!d.adzuna_enabled) msg.textContent = "Tip: add a free Adzuna key on the server for US/local (non-remote) jobs too.";
+    if (!d.jobs.length){ box.innerHTML = '<p class="hint">No matches — try a broader title.</p>'; }
+    for (const j of d.jobs){
+      const el = document.createElement("div");
+      el.className = "histitem";
+      el.style.flexWrap = "wrap";
+      el.innerHTML = `<div style="flex:1;min-width:250px"><b>${esc(j.title)}</b> — ${esc(j.company)}<br>
+        <span class="hint">${esc(j.location)}${j.salary ? " · " + esc(j.salary) : ""} · ${esc(j.source)}</span></div>
+        <span class="score" title="keyword fit vs your master resume">${j.fit}%</span>
+        <a class="btn ghost" style="text-decoration:none" href="${esc(j.url)}" target="_blank">Apply link</a>
+        <button class="btn">Tailor</button>`;
+      el.querySelector("button").onclick = () => {
+        $("jd").value = `${j.title} at ${j.company}\n${j.location}\n\n${j.description}`;
+        document.querySelector('nav button[data-tab="tailor"]').click();
+        tailor();
+      };
+      box.appendChild(el);
+    }
+  }catch(e){ msg.textContent = e.message; msg.className = "hint"; box.innerHTML = ""; $("jobmsg").style.color = "var(--bad)"; }
+  finally { btn.disabled = false; btn.textContent = "Search"; }
+};
+$("jobquery").addEventListener("keydown", e => { if (e.key === "Enter") $("jobsearch").click(); });
 
 loadStatus(); loadMaster();
 </script>

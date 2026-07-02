@@ -113,6 +113,17 @@ titles, skills, or metrics you don't have. Missing JD requirements show up in
 the "Not in your background" list so you can prepare to address them in an
 interview instead of being surprised.
 
+## Find Jobs (job discovery)
+
+The **Find Jobs** tab searches live job boards and ranks every listing by keyword
+fit against your master resume — instantly and at zero AI cost. One click on
+"Tailor" turns a listing into a tailored resume; "Apply link" opens the posting.
+
+- **Remotive** (remote jobs, full descriptions): works out of the box, no key.
+- **Adzuna** (US + 15 countries, salary data, on-site jobs): free key from
+  developer.adzuna.com — set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`
+  (and optionally `ADZUNA_COUNTRY`, default `us`) on the server.
+
 ## Go live (share with friends, free)
 
 The app is deployable as-is. Recommended: **Render.com free tier** (no card needed).
