@@ -47,10 +47,8 @@ if not exist ".env" (
     notepad .env
 )
 
-start "" cmd /c "timeout /t 3 >nul && start http://localhost:8080"
 echo.
-echo Starting Resume Tailor at http://localhost:8080
 echo Keep this window open while you use the app. Close it (or Ctrl+C) to stop.
 echo.
-uvicorn app:app --port 8080
+python run.py
 pause

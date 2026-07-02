@@ -1,8 +1,10 @@
 """Job discovery: search live job boards and rank results by fit
 against the user's master resume. Stdlib-only, no LLM calls (free + instant).
 
-Sources:
+Sources (all fetched in one search, merged and de-duplicated):
 - Remotive (remote jobs, full descriptions) — no API key needed
+- RemoteOK (remote jobs, epoch timestamps) — no API key needed
+- Jobicy (remote jobs) — no API key needed
 - Adzuna (16 countries, salary data) — free key from developer.adzuna.com
   via ADZUNA_APP_ID + ADZUNA_APP_KEY
 - JSearch via RapidAPI (Google-for-Jobs: LinkedIn/Indeed/Glassdoor postings,
@@ -49,6 +51,65 @@ def _strip_html(text: str) -> str:
     text = re.sub(r"<[^>]+>", " ", text or "")
     text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&nbsp;", " ")
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _matches(query: str, *texts) -> bool:
+    """True when every significant query word appears in the combined text
+    (boards without server-side search return their whole feed)."""
+    words = [w for w in re.findall(r"[a-z0-9+#.]+", query.lower())
+             if len(w) > 2 or w in ats.KEEP_SHORT]
+    blob = " ".join(t or "" for t in texts).lower()
+    return all(w in blob for w in words) if words else True
+
+
+def _remoteok(query: str):
+    data = _get_json("https://remoteok.com/api")
+    jobs = []
+    for j in (data[1:] if isinstance(data, list) else []):  # element 0 is a legal notice
+        title = j.get("position") or ""
+        desc = _strip_html(j.get("description", ""))
+        tags = " ".join(j.get("tags") or [])
+        if not _matches(query, title, tags, desc[:1000]):
+            continue
+        url = j.get("url") or ""
+        salary = ""
+        if j.get("salary_min"):
+            salary = f"${int(j['salary_min']):,}"
+            if j.get("salary_max"):
+                salary += f" – ${int(j['salary_max']):,}"
+        jobs.append({
+            "title": title,
+            "company": j.get("company", ""),
+            "location": j.get("location") or "Remote",
+            "salary": salary,
+            "url": url if url.startswith("http") else "https://remoteok.com" + url,
+            "source": "remoteok",
+            "posted_epoch": int(j["epoch"]) if j.get("epoch") else _epoch(j.get("date", "")),
+            "description": (desc + " " + tags)[:8000],
+        })
+    return jobs
+
+
+def _jobicy(query: str):
+    url = "https://jobicy.com/api/v2/remote-jobs?count=50"
+    jobs = []
+    for j in _get_json(url).get("jobs", []):
+        title = j.get("jobTitle", "")
+        desc = _strip_html(j.get("jobDescription") or j.get("jobExcerpt") or "")
+        industry = " ".join(j.get("jobIndustry") or []) if isinstance(j.get("jobIndustry"), list) else str(j.get("jobIndustry") or "")
+        if not _matches(query, title, industry, desc[:1000]):
+            continue
+        jobs.append({
+            "title": title,
+            "company": j.get("companyName", ""),
+            "location": j.get("jobGeo", "Remote"),
+            "salary": "",
+            "url": j.get("url", ""),
+            "source": "jobicy",
+            "posted_epoch": _epoch(j.get("pubDate", "")),
+            "description": desc[:8000],
+        })
+    return jobs
 
 
 def _remotive(query: str):
@@ -160,6 +221,8 @@ def search(query: str, location: str, master_resume: str,
     jobs, errors = [], []
     for name, fetch in (("jsearch", lambda: _jsearch(query, location)),
                         ("remotive", lambda: _remotive(query)),
+                        ("remoteok", lambda: _remoteok(query)),
+                        ("jobicy", lambda: _jobicy(query)),
                         ("adzuna", lambda: _adzuna(query, location))):
         try:
             jobs.extend(fetch())

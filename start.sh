@@ -33,9 +33,7 @@ if [ ! -f ".env" ]; then
     "${EDITOR:-nano}" .env
 fi
 
-( sleep 3; xdg-open http://localhost:8080 2>/dev/null || open http://localhost:8080 2>/dev/null || true ) &
 echo
-echo "Starting Resume Tailor at http://localhost:8080"
 echo "Keep this window open while you use the app. Close it (or Ctrl+C) to stop."
 echo
-uvicorn app:app --port 8080
+python run.py

@@ -182,3 +182,11 @@ def test_epoch_parsing():
     assert jobs_mod._epoch("2026-07-02T03:22:11+00:00") is not None
     assert jobs_mod._epoch("garbage") is None
     assert jobs_mod._epoch("") is None
+
+
+def test_query_relevance_matcher():
+    import jobs as jobs_mod
+    assert jobs_mod._matches("software engineer", "Senior Software Engineer", "python")
+    assert not jobs_mod._matches("software engineer", "Communications Manager", "marketing pr")
+    assert jobs_mod._matches("ml engineer", "Machine Learning (ML) Engineer", "")
+    assert jobs_mod._matches("", "anything at all", "x")
