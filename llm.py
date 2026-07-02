@@ -1,13 +1,16 @@
-"""Provider abstraction: Anthropic, OpenAI, Groq, NVIDIA, or Demo (no key).
+"""Provider abstraction: NVIDIA, Groq, Gemini, Anthropic, OpenAI, any
+OpenAI-compatible custom endpoint (ZenMux, OpenRouter, Ollama, ...), or Demo.
 
-Detection order: RESUME_PROVIDER override, then NVIDIA_API_KEY, then
-GROQ_API_KEY, then ANTHROPIC_API_KEY, then OPENAI_API_KEY, then demo mode —
-free providers first, Claude kept as the paid quality option.
+Detection order (free providers first, Claude kept as the paid quality option):
+RESUME_PROVIDER override > RESUME_BASE_URL (custom) > NVIDIA_API_KEY >
+GROQ_API_KEY > GEMINI_API_KEY > ANTHROPIC_API_KEY > OPENAI_API_KEY > demo.
 Override the model with RESUME_MODEL=<model-id>.
 
+Custom endpoint (e.g. ZenMux): set RESUME_BASE_URL, RESUME_API_KEY, and
+RESUME_MODEL to whatever that service documents.
+
 Cost per tailored resume (2-5 calls, ~5-15K tokens):
-  nvidia llama-3.3-70b       ~ free dev tier (build.nvidia.com)
-  groq   llama-3.3-70b       ~ free tier / <1 cent
+  nvidia / groq / gemini     ~ free tiers
   anthropic claude-sonnet-5  ~ 5-15 cents   (best writing quality)
   anthropic claude-opus-4-8  ~ 50c-1.50     (only via RESUME_MODEL override)
 """
@@ -18,18 +21,24 @@ DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5"
 DEFAULT_OPENAI_MODEL = "gpt-4o"
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_NVIDIA_MODEL = "meta/llama-3.3-70b-instruct"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 
 def detect_provider() -> str:
     forced = os.environ.get("RESUME_PROVIDER", "").strip().lower()
-    if forced in ("anthropic", "openai", "groq", "nvidia", "demo"):
+    if forced in ("anthropic", "openai", "groq", "nvidia", "gemini", "custom", "demo"):
         return forced
+    if os.environ.get("RESUME_BASE_URL"):
+        return "custom"
     if os.environ.get("NVIDIA_API_KEY"):
         return "nvidia"
     if os.environ.get("GROQ_API_KEY"):
         return "groq"
+    if os.environ.get("GEMINI_API_KEY"):
+        return "gemini"
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "anthropic"
     if os.environ.get("OPENAI_API_KEY"):
@@ -47,6 +56,7 @@ def active_model() -> str:
         "openai": DEFAULT_OPENAI_MODEL,
         "groq": DEFAULT_GROQ_MODEL,
         "nvidia": DEFAULT_NVIDIA_MODEL,
+        "gemini": DEFAULT_GEMINI_MODEL,
     }.get(provider, "demo")
 
 
@@ -63,6 +73,18 @@ def complete(system: str, user: str, max_tokens: int = 4096, kind: str = "text")
     if provider == "nvidia":
         return _openai_compatible(system, user, max_tokens, base_url=NVIDIA_BASE_URL,
                                   api_key=os.environ.get("NVIDIA_API_KEY"))
+    if provider == "gemini":
+        return _openai_compatible(system, user, max_tokens, base_url=GEMINI_BASE_URL,
+                                  api_key=os.environ.get("GEMINI_API_KEY"))
+    if provider == "custom":
+        base = os.environ.get("RESUME_BASE_URL", "").strip()
+        if not base or not os.environ.get("RESUME_MODEL"):
+            raise RuntimeError(
+                "Custom provider needs RESUME_BASE_URL, RESUME_API_KEY, and RESUME_MODEL "
+                "set to what your service (e.g. ZenMux) documents."
+            )
+        return _openai_compatible(system, user, max_tokens, base_url=base,
+                                  api_key=os.environ.get("RESUME_API_KEY", "none"))
     return _demo(kind)
 
 

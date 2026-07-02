@@ -71,10 +71,12 @@ it is only used when you explicitly ask for it.
 
 | Priority | Provider  | Default model                 | Cost per resume | Notes |
 |----------|-----------|-------------------------------|-----------------|-------|
+| 0        | Custom    | your `RESUME_MODEL`           | varies          | Any OpenAI-compatible endpoint (ZenMux, OpenRouter, Ollama...) via `RESUME_BASE_URL` + `RESUME_API_KEY` + `RESUME_MODEL` |
 | 1        | NVIDIA    | `meta/llama-3.3-70b-instruct` | free (dev tier) | Key from build.nvidia.com |
 | 2        | Groq      | `llama-3.3-70b-versatile`     | free            | Fastest |
-| 3        | Anthropic | `claude-sonnet-5`             | ~5–15¢          | Best writing — for jobs you really want |
-| 4        | OpenAI    | `gpt-4o`                      | ~5–15¢          | |
+| 3        | Gemini    | `gemini-2.5-flash`            | free tier       | Key from aistudio.google.com |
+| 4        | Anthropic | `claude-sonnet-5`             | ~5–15¢          | Best writing — for jobs you really want |
+| 5        | OpenAI    | `gpt-4o`                      | ~5–15¢          | |
 
 Setup (PowerShell — `pip install openai` once for NVIDIA/Groq/OpenAI):
 
@@ -82,6 +84,20 @@ Setup (PowerShell — `pip install openai` once for NVIDIA/Groq/OpenAI):
 $env:NVIDIA_API_KEY = "nvapi-your-key"     # free default (build.nvidia.com)
 $env:ANTHROPIC_API_KEY = "sk-ant-..."      # optional, only used on request
 uvicorn app:app --port 8080
+```
+
+Gemini (free key from aistudio.google.com):
+
+```powershell
+$env:GEMINI_API_KEY = "AIza-your-key"
+```
+
+ZenMux or any other OpenAI-compatible service (copy base URL + model id from their docs):
+
+```powershell
+$env:RESUME_BASE_URL = "<base url from the service's docs>"
+$env:RESUME_API_KEY  = "<their key>"
+$env:RESUME_MODEL    = "<model id from their catalog>"
 ```
 
 Per-run overrides:

@@ -119,3 +119,15 @@ def test_nvidia_provider_detection(monkeypatch):
     monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test")
     assert llm.detect_provider() == "nvidia"
     assert llm.active_model() == "meta/llama-3.3-70b-instruct"
+
+
+def test_gemini_and_custom_provider_detection(monkeypatch):
+    import llm
+    monkeypatch.setenv("RESUME_PROVIDER", "")
+    for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY", "NVIDIA_API_KEY", "RESUME_BASE_URL"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "AIza-test")
+    assert llm.detect_provider() == "gemini"
+    assert llm.active_model() == "gemini-2.5-flash"
+    monkeypatch.setenv("RESUME_BASE_URL", "https://zenmux.example/v1")
+    assert llm.detect_provider() == "custom"
