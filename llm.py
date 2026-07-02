@@ -95,7 +95,7 @@ def _demo(kind: str) -> str:
             '{"job_title": "Software Engineer", "company": "Demo Corp",'
             ' "skills_match": 88, "experience_match": 86, "industry_match": 87,'
             ' "overall": 87, "missing_keywords": ["Kubernetes"],'
-            ' "fixes": ["Add the distributed-systems project to the top role"]}'
+            ' "improvements": [{"section": "skills", "fix": "Add the distributed-systems project to the top role"}]}'
         )
     return (
         "# Jane Doe\n"

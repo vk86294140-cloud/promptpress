@@ -103,7 +103,13 @@ Score each dimension 0-100:
 Return ONLY a JSON object, no markdown fences, no commentary:
 {"job_title": "...", "company": "...", "skills_match": 0, "experience_match": 0,
  "industry_match": 0, "overall": 0, "missing_keywords": ["..."],
- "fixes": ["specific, actionable edits that would raise the score WITHOUT inventing experience"]}
+ "improvements": [
+   {"section": "summary|skills|experience|projects|education", "fix": "one specific, actionable edit that raises the score WITHOUT inventing experience"}
+ ]}
+
+Give 3-8 improvements, most impactful first — concrete edits (exact keywords to
+work in, bullets to reword or reorder, sections to add from the master resume),
+never vague advice like "add more detail".
 
 "company" is the hiring company from the JD ("" if not stated). "overall" is
 your recruiter judgement, not an average. Calibrate against the REALISTIC

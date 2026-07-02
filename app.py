@@ -34,6 +34,22 @@ class TailorRequest(BaseModel):
     job_description: str
 
 
+class CheckRequest(BaseModel):
+    job_description: str
+    resume_text: str
+
+
+def _require_api_key():
+    if llm.detect_provider() == "demo" and os.environ.get("RESUME_PROVIDER", "").lower() != "demo":
+        raise HTTPException(
+            400,
+            "NO API KEY FOUND — refusing to generate a fake sample resume. In the SAME "
+            "PowerShell window that runs the server, set your real key first: "
+            '$env:RESUME_PROVIDER = "groq" and $env:GROQ_API_KEY = "gsk_..." '
+            '(or $env:ANTHROPIC_API_KEY = "sk-ant-..."), then restart uvicorn.',
+        )
+
+
 def _slug(text: str) -> str:
     text = re.sub(r"[^a-zA-Z0-9]+", "-", text.lower()).strip("-")
     return text[:60] or "job"
@@ -68,14 +84,7 @@ def save_master(body: MasterResume):
 
 @app.post("/api/tailor")
 def tailor(body: TailorRequest):
-    if llm.detect_provider() == "demo" and os.environ.get("RESUME_PROVIDER", "").lower() != "demo":
-        raise HTTPException(
-            400,
-            "NO API KEY FOUND — refusing to generate a fake sample resume. In the SAME "
-            "PowerShell window that runs the server, set your real key first: "
-            '$env:RESUME_PROVIDER = "groq" and $env:GROQ_API_KEY = "gsk_..." '
-            "(or $env:ANTHROPIC_API_KEY = \"sk-ant-...\"), then restart uvicorn.",
-        )
+    _require_api_key()
     jd = body.job_description.strip()
     if len(jd) < 80:
         raise HTTPException(400, "That doesn't look like a full job description. Paste the whole posting.")
@@ -116,6 +125,23 @@ def history():
         except (json.JSONDecodeError, OSError):
             continue
     return {"items": items}
+
+
+@app.post("/api/check")
+def check(body: CheckRequest):
+    """Score any existing resume against a JD and return section improvements."""
+    _require_api_key()
+    jd = body.job_description.strip()
+    resume = body.resume_text.strip()
+    if len(jd) < 80:
+        raise HTTPException(400, "Paste the whole job description.")
+    if len(resume) < 120:
+        raise HTTPException(400, "Paste the full resume text to check.")
+    try:
+        scores = pipeline.score(jd, resume)
+    except Exception as exc:
+        raise HTTPException(502, f"Check failed: {exc}") from exc
+    return {"scores": scores, "provider": llm.detect_provider(), "model": llm.active_model()}
 
 
 @app.get("/api/download/{name}/{fmt}")

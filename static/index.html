@@ -82,6 +82,11 @@
           <span class="hint">Ctrl+Enter works too. Takes ~30–90s: it writes, scores itself as a recruiter, and revises until every dimension is ≥ 85%.</span>
         </div>
         <div id="msg"></div>
+        <p class="hint" style="margin-top:14px"><a href="#" id="togglecheck" style="color:var(--accent)">Check an existing resume against this JD instead &raquo;</a></p>
+        <div id="checkbox" style="display:none">
+          <textarea id="checkresume" style="height:200px" placeholder="Paste the resume text to score (any resume — yours, an old version, a friend's)."></textarea>
+          <div class="row"><button class="btn ghost" id="docheck">Score this resume</button></div>
+        </div>
       </div>
       <div>
         <div class="scorecard" id="scorecard">
@@ -91,6 +96,7 @@
           <div class="meter"><span>Industry</span><div class="bar"><i id="b-ind"></i></div><span id="v-ind"></span></div>
           <div class="meter"><span><b>Overall</b></span><div class="bar"><i id="b-all"></i></div><span id="v-all"></span></div>
           <div class="missing" id="missing"></div>
+          <div class="missing" id="improve"></div>
           <div class="row">
             <button class="btn" id="dlpdf">Download PDF</button>
             <button class="btn" id="dldocx">Download DOCX</button>
@@ -207,6 +213,9 @@ function paintScores(sc){
   }
   $("missing").innerHTML = (sc.missing_keywords || []).length
     ? `<b>Not in your background (be ready to address):</b> ${sc.missing_keywords.map(esc).join(", ")}` : "";
+  const imps = sc.improvements || [];
+  $("improve").innerHTML = imps.length
+    ? `<b>Checker suggestions:</b><br>` + imps.map(i => `&bull; <b>${esc(i.section || "general")}:</b> ${esc(i.fix || String(i))}`).join("<br>") : "";
 }
 
 // ---- tailor ----
@@ -233,6 +242,24 @@ async function tailor(){
   btn.disabled = false; btn.textContent = "Tailor my resume";
 }
 $("go").onclick = tailor;
+$("togglecheck").onclick = (e) => { e.preventDefault(); const b = $("checkbox"); b.style.display = b.style.display === "none" ? "block" : "none"; };
+$("docheck").onclick = async () => {
+  const msg = $("msg"), btn = $("docheck");
+  btn.disabled = true; btn.textContent = "Scoring…";
+  msg.className = ""; msg.textContent = "Scoring as a recruiter/ATS…";
+  try{
+    const r = await fetch("/api/check", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({job_description: $("jd").value.trim(), resume_text: $("checkresume").value.trim()})});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Check failed");
+    paintScores(d.scores);
+    msg.className = d.scores.overall >= 85 ? "ok" : "err";
+    msg.textContent = d.scores.overall >= 85
+      ? `This resume scores ${d.scores.overall}% — interview pile.`
+      : `This resume scores ${d.scores.overall}% — see the checker suggestions on the right, or click "Tailor my resume" to have them applied automatically from your master resume.`;
+  }catch(e){ msg.className = "err"; msg.textContent = e.message; }
+  btn.disabled = false; btn.textContent = "Score this resume";
+};
 $("jd").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); tailor(); } });
 
 // ---- export ----

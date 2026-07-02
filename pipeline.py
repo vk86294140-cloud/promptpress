@@ -1,13 +1,14 @@
 """Tailor pipeline: write -> score -> (revise -> score) until every dimension >= 85."""
 
 import json
+import os
 import re
 
 import llm
 import prompts
 
 TARGET = 85
-MAX_REVISIONS = 1
+MAX_REVISIONS = int(os.environ.get("RESUME_MAX_REVISIONS", "2"))
 DIMENSIONS = ("skills_match", "experience_match", "industry_match", "overall")
 
 
@@ -24,7 +25,8 @@ def extract_json(text: str) -> dict:
     return json.loads(text)
 
 
-def _score(job_description: str, resume_md: str) -> dict:
+def score(job_description: str, resume_md: str) -> dict:
+    """Recruiter/ATS check of any resume text against a JD (the PartyRock-style checker)."""
     raw = llm.complete(
         prompts.SCORER_SYSTEM,
         prompts.scorer_user(job_description, resume_md),
@@ -35,7 +37,7 @@ def _score(job_description: str, resume_md: str) -> dict:
     for key in DIMENSIONS:
         scores[key] = max(0, min(100, int(scores.get(key, 0))))
     scores.setdefault("missing_keywords", [])
-    scores.setdefault("fixes", [])
+    scores.setdefault("improvements", [])
     scores.setdefault("job_title", "")
     scores.setdefault("company", "")
     return scores
@@ -52,7 +54,7 @@ def tailor(job_description: str, master_resume: str) -> dict:
         max_tokens=4096,
         kind="resume",
     ).strip()
-    scores = _score(job_description, resume_md)
+    scores = score(job_description, resume_md)
 
     revisions = 0
     while revisions < MAX_REVISIONS and not _meets_target(scores):
@@ -65,7 +67,7 @@ def tailor(job_description: str, master_resume: str) -> dict:
             max_tokens=4096,
             kind="resume",
         ).strip()
-        revised_scores = _score(job_description, revised)
+        revised_scores = score(job_description, revised)
         # keep the revision only if it didn't make things worse
         if revised_scores["overall"] >= scores["overall"]:
             resume_md, scores = revised, revised_scores
