@@ -139,6 +139,11 @@ fit against your master resume — instantly and at zero AI cost. One click on
 - **JSearch** (Google-for-Jobs: LinkedIn/Indeed/Glassdoor postings — the best
   source for very fresh jobs): free tier at rapidapi.com/search/jsearch —
   subscribe to the JSearch API and set `JSEARCH_API_KEY` to your RapidAPI key.
+- **Jooble** (large Indeed-style aggregator): request a free key at
+  jooble.org/api/about → `JOOBLE_API_KEY`.
+- **Findwork** (developer jobs, date-sorted): free key at
+  findwork.dev/developers/api → `FINDWORK_API_KEY`.
+- **Arbeitnow** (Europe + remote): keyless, included automatically.
 
 ### Beating the applicant crowd
 

@@ -6,6 +6,10 @@ Sources (all fetched in one search, merged and de-duplicated):
 - RemoteOK (remote jobs, epoch timestamps) — no API key needed
 - Jobicy (remote jobs) — no API key needed
 - The Muse (US on-site/hybrid + remote, all professions) — no API key needed
+- Arbeitnow (Europe + remote) — no API key needed
+- Jooble (large Indeed-style aggregator) — free key by request at jooble.org/api/about
+  via JOOBLE_API_KEY
+- Findwork (developer jobs, date-sorted) — free key at findwork.dev via FINDWORK_API_KEY
 - Adzuna (16 countries, salary data) — free key from developer.adzuna.com
   via ADZUNA_APP_ID + ADZUNA_APP_KEY
 - JSearch via RapidAPI (Google-for-Jobs: LinkedIn/Indeed/Glassdoor postings,
@@ -42,8 +46,18 @@ def _epoch(iso: str):
         return None
 
 
-def _get_json(url: str) -> dict:
-    req = urllib.request.Request(url, headers={"User-Agent": "resume-tailor/1.0"})
+def _get_json(url: str, headers: dict = None) -> dict:
+    h = {"User-Agent": "resume-tailor/1.0"}
+    h.update(headers or {})
+    req = urllib.request.Request(url, headers=h)
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def _post_json(url: str, payload: dict) -> dict:
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers={
+        "User-Agent": "resume-tailor/1.0", "Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
@@ -136,6 +150,72 @@ def _themuse(query: str, location: str):
                 "posted_epoch": _epoch(j.get("publication_date", "")),
                 "description": desc[:8000],
             })
+    return jobs
+
+
+def _arbeitnow(query: str):
+    """Arbeitnow public board (Europe + remote) — keyless, epoch timestamps."""
+    jobs = []
+    for j in _get_json("https://www.arbeitnow.com/api/job-board-api").get("data", []):
+        title = j.get("title", "")
+        desc = _strip_html(j.get("description", ""))
+        tags = " ".join((j.get("tags") or []) + (j.get("job_types") or []))
+        if not _matches(query, title, tags, desc[:1000]):
+            continue
+        jobs.append({
+            "title": title,
+            "company": j.get("company_name", ""),
+            "location": (j.get("location") or "") + (" · Remote" if j.get("remote") else ""),
+            "salary": "",
+            "url": j.get("url", ""),
+            "source": "arbeitnow",
+            "posted_epoch": int(j["created_at"]) if j.get("created_at") else None,
+            "description": desc[:8000],
+        })
+    return jobs
+
+
+def _jooble(query: str, location: str):
+    """Jooble aggregator — free key by request (jooble.org/api/about)."""
+    key = os.environ.get("JOOBLE_API_KEY", "")
+    if not key:
+        return []
+    data = _post_json("https://jooble.org/api/" + key,
+                      {"keywords": query, "location": location or ""})
+    jobs = []
+    for j in data.get("jobs", []):
+        jobs.append({
+            "title": _strip_html(j.get("title", "")),
+            "company": j.get("company", ""),
+            "location": j.get("location", ""),
+            "salary": j.get("salary", ""),
+            "url": j.get("link", ""),
+            "source": "jooble",
+            "posted_epoch": _epoch(j.get("updated", "")),
+            "description": _strip_html(j.get("snippet", ""))[:8000],
+        })
+    return jobs
+
+
+def _findwork(query: str, location: str):
+    """Findwork developer jobs — free key at findwork.dev/developers/api."""
+    key = os.environ.get("FINDWORK_API_KEY", "")
+    if not key:
+        return []
+    url = ("https://findwork.dev/api/jobs/?sort_by=date&search=" + urllib.parse.quote(query)
+           + (("&location=" + urllib.parse.quote(location)) if location else ""))
+    jobs = []
+    for j in _get_json(url, headers={"Authorization": "Token " + key}).get("results", []):
+        jobs.append({
+            "title": j.get("role", ""),
+            "company": j.get("company_name", ""),
+            "location": (j.get("location") or "") + (" · Remote" if j.get("remote") else ""),
+            "salary": "",
+            "url": j.get("url", ""),
+            "source": "findwork",
+            "posted_epoch": _epoch(j.get("date_posted", "")),
+            "description": _strip_html(j.get("text", ""))[:8000],
+        })
     return jobs
 
 
@@ -251,6 +331,9 @@ def search(query: str, location: str, master_resume: str,
                         ("remoteok", lambda: _remoteok(query)),
                         ("jobicy", lambda: _jobicy(query)),
                         ("themuse", lambda: _themuse(query, location)),
+                        ("arbeitnow", lambda: _arbeitnow(query)),
+                        ("jooble", lambda: _jooble(query, location)),
+                        ("findwork", lambda: _findwork(query, location)),
                         ("adzuna", lambda: _adzuna(query, location))):
         try:
             jobs.extend(fetch())
