@@ -160,3 +160,25 @@ def test_job_ranking():
 def test_job_html_strip():
     import jobs as jobs_mod
     assert jobs_mod._strip_html("<p>Python &amp; <b>AWS</b></p>") == "Python & AWS"
+
+
+def test_freshness_filter():
+    import time
+    import jobs as jobs_mod
+    now = time.time()
+    listing = [
+        {"title": "Fresh", "company": "A", "description": "x", "posted_epoch": now - 1800},
+        {"title": "Old", "company": "B", "description": "x", "posted_epoch": now - 90000},
+        {"title": "Unknown", "company": "C", "description": "x", "posted_epoch": None},
+    ]
+    fresh = jobs_mod.filter_fresh(listing, 1)
+    assert [j["title"] for j in fresh] == ["Fresh"]
+    assert len(jobs_mod.filter_fresh(listing, 0)) == 3
+
+
+def test_epoch_parsing():
+    import jobs as jobs_mod
+    assert jobs_mod._epoch("2026-07-02T03:22:11Z") is not None
+    assert jobs_mod._epoch("2026-07-02T03:22:11+00:00") is not None
+    assert jobs_mod._epoch("garbage") is None
+    assert jobs_mod._epoch("") is None

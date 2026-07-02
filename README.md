@@ -123,6 +123,18 @@ fit against your master resume — instantly and at zero AI cost. One click on
 - **Adzuna** (US + 15 countries, salary data, on-site jobs): free key from
   developer.adzuna.com — set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`
   (and optionally `ADZUNA_COUNTRY`, default `us`) on the server.
+- **JSearch** (Google-for-Jobs: LinkedIn/Indeed/Glassdoor postings — the best
+  source for very fresh jobs): free tier at rapidapi.com/search/jsearch —
+  subscribe to the JSearch API and set `JSEARCH_API_KEY` to your RapidAPI key.
+
+### Beating the applicant crowd
+
+There is no public API that reports applicant counts (that data lives inside
+LinkedIn only). The working strategy: **apply to jobs posted within the last
+hour — they have almost no applicants yet.** Use the freshness dropdown
+("Last hour" / "Last 3 hours"), check a few times a day, and tailor + apply
+immediately when a high-fit fresh posting appears. Each listing shows its age;
+green minutes = the window where you're among the first applicants.
 
 ## Go live (share with friends, free)
 
