@@ -32,6 +32,8 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 
+APP_VERSION = "16"
+
 app = FastAPI(title="Resume Tailor")
 
 
@@ -99,6 +101,7 @@ def status(request: Request):
     return {
         "provider": llm.detect_provider(),
         "model": llm.active_model(),
+        "version": APP_VERSION,
         "needs_key": bool(APP_PASSWORD),
         "user": user,
         "has_master_resume": mf.exists() and mf.stat().st_size > 0,

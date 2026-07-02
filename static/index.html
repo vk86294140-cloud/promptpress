@@ -200,7 +200,7 @@ async function loadStatus(){
     const s = await (await api("/api/status")).json();
     $("status").textContent = s.provider === "demo"
       ? "NO API KEY — this window's server has no GROQ/ANTHROPIC key. Fix env vars and restart!"
-      : `${s.provider} · ${s.model} · ${s.user}`;
+      : `${s.provider} · ${s.model} · ${s.user} · v${s.version || "?"}`;
     $("status").classList.toggle("demo", s.provider === "demo");
     if (!s.has_master_resume){
       $("msg").className = "err";

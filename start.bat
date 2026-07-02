@@ -21,8 +21,13 @@ if errorlevel 1 (
 )
 
 echo Checking for updates...
-git pull https://github.com/vk86294140-cloud/promptpress resume-tailor-staging >nul 2>&1
-git push origin main >nul 2>&1
+git fetch https://github.com/vk86294140-cloud/promptpress resume-tailor-staging >nul 2>&1
+if errorlevel 1 (
+    echo   offline or fetch failed - starting with the currently installed version
+) else (
+    git reset --hard FETCH_HEAD >nul 2>&1
+    git push origin main >nul 2>&1
+)
 
 if not exist ".venv\Scripts\python.exe" (
     echo First-time setup - installing, this takes about a minute...

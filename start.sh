@@ -7,8 +7,12 @@ command -v git >/dev/null || { echo "Install git first: git-scm.com"; exit 1; }
 command -v python3 >/dev/null || { echo "Install Python 3 first: python.org"; exit 1; }
 
 echo "Checking for updates..."
-git pull https://github.com/vk86294140-cloud/promptpress resume-tailor-staging >/dev/null 2>&1 || true
-git push origin main >/dev/null 2>&1 || true
+if git fetch https://github.com/vk86294140-cloud/promptpress resume-tailor-staging >/dev/null 2>&1; then
+    git reset --hard FETCH_HEAD >/dev/null 2>&1 || true
+    git push origin main >/dev/null 2>&1 || true
+else
+    echo "  offline or fetch failed - starting with the currently installed version"
+fi
 
 if [ ! -f ".venv/bin/python" ]; then
     echo "First-time setup - installing, this takes about a minute..."
