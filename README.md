@@ -68,11 +68,20 @@ macOS/Linux: same thing with `source .venv/bin/activate` and `export ANTHROPIC_A
 All three work. Auto-detection order: `ANTHROPIC_API_KEY` → `OPENAI_API_KEY` →
 `GROQ_API_KEY`, or force one with `RESUME_PROVIDER=anthropic|openai|groq`.
 
-| Provider  | Default model             | Cost per tailored resume | Quality |
-|-----------|---------------------------|--------------------------|---------|
-| Anthropic | `claude-sonnet-5`         | ~5–15¢                   | Best writing (recommended) |
-| Groq      | `llama-3.3-70b-versatile` | ~free                    | Good, slightly more generic phrasing |
-| OpenAI    | `gpt-4o`                  | ~5–15¢                   | Good |
+| Provider  | Default model               | Cost per tailored resume | Quality |
+|-----------|-----------------------------|--------------------------|---------|
+| Anthropic | `claude-sonnet-5`           | ~5–15¢                   | Best writing (recommended for jobs you care about) |
+| NVIDIA    | `meta/llama-3.3-70b-instruct` | ~free (dev tier)       | Good, slightly more generic phrasing |
+| Groq      | `llama-3.3-70b-versatile`   | ~free                    | Good, fastest |
+| OpenAI    | `gpt-4o`                    | ~5–15¢                   | Good |
+
+Use NVIDIA (key from build.nvidia.com — needs `pip install openai` once):
+
+```powershell
+$env:RESUME_PROVIDER = "nvidia"
+$env:NVIDIA_API_KEY = "nvapi-your-key"
+uvicorn app:app --port 8080
+```
 
 Use Groq (PowerShell — needs `pip install openai` once):
 

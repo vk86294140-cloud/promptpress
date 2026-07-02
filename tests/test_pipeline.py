@@ -109,3 +109,13 @@ def test_tailor_includes_ats_scan_and_demo_letter():
     assert "ats_keyword_scan" in result["scores"]
     import llm
     assert "Dear Hiring Manager" in llm.complete("s", "u", kind="letter")
+
+
+def test_nvidia_provider_detection(monkeypatch):
+    import llm
+    monkeypatch.setenv("RESUME_PROVIDER", "")
+    for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test")
+    assert llm.detect_provider() == "nvidia"
+    assert llm.active_model() == "meta/llama-3.3-70b-instruct"

@@ -1,13 +1,14 @@
-"""Provider abstraction: Anthropic, OpenAI, Groq, or Demo (no key).
+"""Provider abstraction: Anthropic, OpenAI, Groq, NVIDIA, or Demo (no key).
 
 Detection order: RESUME_PROVIDER override, then ANTHROPIC_API_KEY, then
-OPENAI_API_KEY, then GROQ_API_KEY, then demo mode.
+OPENAI_API_KEY, then GROQ_API_KEY, then NVIDIA_API_KEY, then demo mode.
 Override the model with RESUME_MODEL=<model-id>.
 
-Cost per tailored resume (3-7 calls, ~5-15K tokens):
-  groq  llama-3.3-70b        ~ free tier / <1 cent
-  anthropic claude-sonnet-5  ~ 5-15 cents   (default: best quality/cost)
-  anthropic claude-opus-4-8  ~ 50c-1 dollar (RESUME_MODEL=claude-opus-4-8)
+Cost per tailored resume (2-5 calls, ~5-15K tokens):
+  nvidia llama-3.3-70b       ~ free dev tier (build.nvidia.com)
+  groq   llama-3.3-70b       ~ free tier / <1 cent
+  anthropic claude-sonnet-5  ~ 5-15 cents   (best writing quality)
+  anthropic claude-opus-4-8  ~ 50c-1.50     (only via RESUME_MODEL override)
 """
 
 import os
@@ -15,12 +16,14 @@ import os
 DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5"
 DEFAULT_OPENAI_MODEL = "gpt-4o"
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_NVIDIA_MODEL = "meta/llama-3.3-70b-instruct"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 
 
 def detect_provider() -> str:
     forced = os.environ.get("RESUME_PROVIDER", "").strip().lower()
-    if forced in ("anthropic", "openai", "groq", "demo"):
+    if forced in ("anthropic", "openai", "groq", "nvidia", "demo"):
         return forced
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "anthropic"
@@ -28,6 +31,8 @@ def detect_provider() -> str:
         return "openai"
     if os.environ.get("GROQ_API_KEY"):
         return "groq"
+    if os.environ.get("NVIDIA_API_KEY"):
+        return "nvidia"
     return "demo"
 
 
@@ -40,6 +45,7 @@ def active_model() -> str:
         "anthropic": DEFAULT_ANTHROPIC_MODEL,
         "openai": DEFAULT_OPENAI_MODEL,
         "groq": DEFAULT_GROQ_MODEL,
+        "nvidia": DEFAULT_NVIDIA_MODEL,
     }.get(provider, "demo")
 
 
@@ -53,6 +59,9 @@ def complete(system: str, user: str, max_tokens: int = 4096, kind: str = "text")
     if provider == "groq":
         return _openai_compatible(system, user, max_tokens, base_url=GROQ_BASE_URL,
                                   api_key=os.environ.get("GROQ_API_KEY"))
+    if provider == "nvidia":
+        return _openai_compatible(system, user, max_tokens, base_url=NVIDIA_BASE_URL,
+                                  api_key=os.environ.get("NVIDIA_API_KEY"))
     return _demo(kind)
 
 
