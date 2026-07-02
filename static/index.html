@@ -208,14 +208,36 @@ async function loadStatus(){
     }
   }catch{ $("status").textContent = "server unreachable"; }
 }
+// Free hosting tiers (e.g. Render free) have no persistent disk — the server
+// filesystem resets on every redeploy. As a safety net, every save is also
+// mirrored into this browser's localStorage; if the server ever comes back
+// empty, we auto-restore from that local copy so a redeploy can't lose it.
+function masterBackupKey(){ return "rtMasterBackup:" + ensureUser(); }
+
 async function loadMaster(){
   const d = await (await api("/api/master")).json();
-  $("master").value = d.text || "";
+  if (d.text){
+    $("master").value = d.text;
+    localStorage.setItem(masterBackupKey(), d.text);
+    return;
+  }
+  const backup = localStorage.getItem(masterBackupKey());
+  if (backup){
+    $("master").value = backup;
+    const r = await api("/api/master", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({text: backup})});
+    $("mastermsg").textContent = r.ok
+      ? "Restored your master resume from this browser's local backup (the server's storage was reset)."
+      : "Found a local backup but could not restore it to the server — click Save to retry.";
+    loadStatus();
+  }
 }
 $("savemaster").onclick = async () => {
+  const text = $("master").value;
   const r = await api("/api/master", {method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({text: $("master").value})});
+    body: JSON.stringify({text})});
   const d = await r.json();
+  if (r.ok) localStorage.setItem(masterBackupKey(), text);
   $("mastermsg").textContent = r.ok ? `Saved (${d.chars.toLocaleString()} characters).` : "Save failed.";
   loadStatus();
 };

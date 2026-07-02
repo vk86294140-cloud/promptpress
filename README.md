@@ -158,8 +158,27 @@ accounts/emails stored, HTTPS provided by Render. Don't post the URL publicly �
 anyone with URL + key can use your LLM quota.
 
 Free-tier notes: the service sleeps after ~15 idle minutes (first request takes
-~40s to wake) and the 1GB disk keeps everyone's data across restarts.
+~40s to wake up).
 Alternatives: Fly.io (`fly launch` — reads the Dockerfile) or any Docker host.
+
+### Free-tier persistence (no disk)
+
+Render's free tier has **no persistent disk** — the server's filesystem resets
+every time you redeploy (push new code). That would normally mean everyone's
+saved master resume vanishes on the next update. The app compensates
+automatically:
+
+- Every "Save master resume" also mirrors the text into that browser's
+  `localStorage`, keyed to the person's workspace name.
+- On page load, if the server comes back empty (fresh deploy) but the browser
+  has a backup, the app **silently restores it to the server** and shows a
+  one-line notice. The next visit is normal.
+
+What this does **not** cover: generated resume/cover-letter **history** —
+that's server-only and is lost on redeploy on the free tier. Download the
+PDF/DOCX for anything you want to keep. If that matters more than the $0
+price, Render's paid Starter plan (~$7/mo) adds a real persistent disk — just
+add a `disk:` block back to `render.yaml` at that point.
 
 ## Tests
 

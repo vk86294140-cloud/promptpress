@@ -1,4 +1,10 @@
 # One-click blueprint for render.com (free tier)
+# NOTE: Render's free tier does not support persistent disks, so the
+# filesystem resets on every redeploy. The app compensates by backing up
+# each user's master resume in their own browser (localStorage) and
+# auto-restoring it to the server the next time they open the app — see
+# the README "Free-tier persistence" section. Generated resume history
+# is best-effort on this tier; download PDFs/DOCX you want to keep.
 services:
   - type: web
     name: resume-tailor
@@ -9,7 +15,3 @@ services:
         sync: false
       - key: NVIDIA_API_KEY        # or GROQ_API_KEY / GEMINI_API_KEY
         sync: false
-    disk:
-      name: resume-data
-      mountPath: /app/data
-      sizeGB: 1
