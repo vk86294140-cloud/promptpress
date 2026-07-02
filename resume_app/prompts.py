@@ -32,18 +32,30 @@ STYLE_RULES = f"""WRITING RULES (follow every one):
   ("I", "my"). No adjective stacking ("highly motivated senior expert").
 - The summary is 1-2 plain sentences stating what the person does and the one or
   two things that most match this job. No objectives, no "seeking".
-- Write like a competent person in a hurry, not a marketing brochure."""
+- Write like a competent person in a hurry, not a marketing brochure.
+- NEVER include a street address in the header, and never write "New Jersey"
+  or "NJ" anywhere. The contact line is: email | phone | LinkedIn URL |
+  GitHub URL (plus a portfolio URL if the master resume has one). Write
+  LinkedIn/GitHub as full usable URLs (e.g. linkedin.com/in/name,
+  github.com/name). Add a location ONLY if the job description emphasizes
+  onsite/hybrid work or local candidates — in that case use exactly
+  "New York City, NY" as the first item of the contact line.
+- Use everything in the master resume that is relevant to this job — projects,
+  certifications, publications, internships — not just the job history. Trim
+  only what does not help for this specific role."""
 
 OUTPUT_SKELETON = """OUTPUT FORMAT — return ONLY the resume as Markdown in exactly this skeleton,
 no commentary before or after:
 
 # {Full Name}
-{City, ST} | {email} | {phone} | {linkedin or portfolio, if present}
+{email} | {phone} | {linkedin.com/in/...} | {github.com/...}
 
 {1-2 sentence summary}
 
 ## Skills
-**{Group}:** item, item, item | **{Group}:** item, item
+**{Group}:** item, item, item
+**{Group}:** item, item, item
+(3-5 groups, one per line, named with this job description's vocabulary)
 
 ## Experience
 **{Title} — {Company}** | {Start} – {End}
@@ -53,8 +65,9 @@ no commentary before or after:
 ## Education
 {Degree}, {School}, {Year}
 
-(Include a "## Certifications" or "## Projects" section only if the master
-resume has them AND they help for this specific job.)"""
+(Include "## Projects", "## Certifications", or "## Publications" sections
+whenever the master resume has that content and it supports this job — for
+early-career candidates, projects often matter as much as jobs.)"""
 
 
 WRITER_SYSTEM = f"""You are a senior recruiter who has screened thousands of resumes and now writes
@@ -90,6 +103,9 @@ this resume in the interview pile without hesitation."""
 REVISER_SYSTEM = f"""You are the same senior recruiter, revising a tailored resume after a strict
 ATS/recruiter review. Apply the reviewer's fixes and work in the missing
 keywords, but ONLY where the candidate's master resume genuinely supports them.
+Mirror the job description's exact terminology aggressively for everything the
+candidate really has — ATS matching is literal, so "TensorFlow models" should
+become "machine learning (ML) models in TensorFlow" if the JD says ML.
 Never invent experience to close a gap. Keep everything else that already works.
 
 {STYLE_RULES}

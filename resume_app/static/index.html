@@ -41,9 +41,10 @@
   .missing{margin-top:10px;font-size:12px;color:var(--muted)}
   .missing b{color:var(--warn);font-weight:600}
   #sheetwrap{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:24px;overflow:auto}
-  #sheet{background:#fff;color:#1a1a1a;width:8.5in;min-height:11in;max-width:100%;margin:0 auto;padding:.55in .6in;box-shadow:0 6px 24px rgba(0,0,0,.45);font:10.5pt/1.38 Georgia,"Times New Roman",serif}
-  #sheet h1{font-size:19pt;margin:0 0 2pt;letter-spacing:.3px}
-  #sheet .contact{font-size:9pt;color:#444;margin-bottom:8pt}
+  #sheet{background:#fff;color:#1a1a1a;width:8.5in;min-height:11in;max-width:100%;margin:0 auto;padding:.5in .6in;box-shadow:0 6px 24px rgba(0,0,0,.45);font:10.5pt/1.36 Calibri,Arial,Helvetica,sans-serif}
+  #sheet h1{font-size:18pt;margin:0 0 2pt;letter-spacing:.2px}
+  #sheet .contact{font-size:9.5pt;color:#333;margin-bottom:8pt}
+  #sheet .contact a{color:#1a56b0}
   #sheet h2{font-size:10.5pt;text-transform:uppercase;letter-spacing:1.1px;border-bottom:1px solid #999;margin:11pt 0 5pt;padding-bottom:2pt}
   #sheet p{margin:4pt 0}
   #sheet ul{margin:2pt 0 7pt;padding-left:16pt}
@@ -57,12 +58,6 @@
   .histitem .score{margin-left:auto;font-weight:700}
   .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:r .7s linear infinite;vertical-align:-2px;margin-right:8px}
   @keyframes r{to{transform:rotate(360deg)}}
-  @media print{
-    body *{visibility:hidden}
-    #sheet,#sheet *{visibility:visible}
-    #sheet{position:fixed;inset:0;width:auto;min-height:auto;box-shadow:none;padding:0;margin:0}
-    @page{size:letter;margin:.55in .6in}
-  }
 </style>
 </head>
 <body>
@@ -96,10 +91,12 @@
           <div class="meter"><span><b>Overall</b></span><div class="bar"><i id="b-all"></i></div><span id="v-all"></span></div>
           <div class="missing" id="missing"></div>
           <div class="row">
-            <button class="btn" onclick="window.print()">Download PDF</button>
+            <button class="btn" id="dlpdf">Download PDF</button>
+            <button class="btn" id="dldocx">Download DOCX</button>
             <button class="btn ghost" id="copy">Copy text</button>
             <button class="btn ghost" id="dlmd">Download .md</button>
           </div>
+          <p class="hint" style="margin:8px 0 0">DOCX is the safest format for ATS portals; the PDF is text-based with standard fonts, fine everywhere else.</p>
         </div>
         <div id="sheetwrap">
           <div id="sheet"><div id="placeholder">Your tailored one-page resume will render here.</div></div>
@@ -163,6 +160,18 @@ $("savemaster").onclick = async () => {
 // ---- markdown -> resume HTML ----
 function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function inline(s){ return esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>"); }
+function contactHtml(line){
+  return line.split("|").map(tok => {
+    const t = tok.trim(), low = t.toLowerCase();
+    if (t.includes("@") && !low.includes("linkedin") && !low.includes("github") && !t.includes(" "))
+      return `<a href="mailto:${esc(t)}">${esc(t)}</a>`;
+    if (/linkedin\.com|github\.com|^https?:\/\/|^www\./.test(low)){
+      const url = low.startsWith("http") ? t : "https://" + t;
+      return `<a href="${esc(url)}" target="_blank">${esc(t.replace(/^https?:\/\/(www\.)?/,""))}</a>`;
+    }
+    return esc(t);
+  }).join(" | ");
+}
 function render(md){
   const lines = md.split(/\r?\n/); let html = "", inList = false, afterName = false;
   const closeList = () => { if(inList){ html += "</ul>"; inList = false; } };
@@ -172,8 +181,8 @@ function render(md){
     if (line.startsWith("## ")){ closeList(); html += `<h2>${inline(line.slice(3))}</h2>`; }
     else if (line.startsWith("# ")){ closeList(); html += `<h1>${inline(line.slice(2))}</h1>`; afterName = true; }
     else if (/^[-*] /.test(line)){ if(!inList){ html += "<ul>"; inList = true; } html += `<li>${inline(line.replace(/^[-*] /,""))}</li>`; }
-    else if (afterName){ html += `<p class="contact">${inline(line)}</p>`; afterName = false; }
-    else if (/^\*\*.+\*\*\s*\|/.test(line) && !line.startsWith("**Languages") ){
+    else if (afterName){ html += `<p class="contact">${contactHtml(line)}</p>`; afterName = false; }
+    else if (/^\*\*[^*]+\*\*\s*\|/.test(line) && !/^\*\*[^*]*:\*\*/.test(line)){
       const [left, ...rest] = line.split("|");
       html += `<p class="role"><b>${inline(left.trim()).replace(/<\/?b>/g,"")}</b><span>${inline(rest.join("|").trim())}</span></p>`;
     }
@@ -225,6 +234,8 @@ $("go").onclick = tailor;
 $("jd").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); tailor(); } });
 
 // ---- export ----
+$("dlpdf").onclick  = () => { if (lastName !== "resume") location.href = `/api/download/${encodeURIComponent(lastName)}/pdf`; };
+$("dldocx").onclick = () => { if (lastName !== "resume") location.href = `/api/download/${encodeURIComponent(lastName)}/docx`; };
 $("copy").onclick = async () => { await navigator.clipboard.writeText(lastMarkdown); $("copy").textContent = "Copied!"; setTimeout(() => $("copy").textContent = "Copy text", 1200); };
 $("dlmd").onclick = () => {
   const a = document.createElement("a");

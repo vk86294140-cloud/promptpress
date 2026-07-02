@@ -85,10 +85,12 @@ def _demo(kind: str) -> str:
         )
     return (
         "# Jane Doe\n"
-        "San Francisco, CA | jane@example.com | (555) 010-0000 | linkedin.com/in/janedoe\n\n"
+        "jane@example.com | (555) 010-0000 | linkedin.com/in/janedoe | github.com/janedoe\n\n"
         "Backend engineer with six years building payment and billing systems in Python and Go.\n\n"
         "## Skills\n"
-        "**Languages:** Python, Go, SQL | **Infra:** AWS, Docker, Terraform | **Data:** Postgres, Redis, Kafka\n\n"
+        "**Languages:** Python, Go, SQL\n"
+        "**Cloud & Infra:** AWS, Docker, Terraform\n"
+        "**Data:** Postgres, Redis, Kafka\n\n"
         "## Experience\n"
         "**Senior Software Engineer — Acme Payments** | 2021 – Present\n"
         "- Cut checkout p99 latency from 900ms to 210ms by moving fraud checks off the hot path\n"

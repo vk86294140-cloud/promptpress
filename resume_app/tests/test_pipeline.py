@@ -30,3 +30,50 @@ def test_tailor_demo_end_to_end():
     assert result["provider"] == "demo"
     for key in pipeline.DIMENSIONS:
         assert 0 <= result["scores"][key] <= 100
+
+
+SAMPLE_MD = """# Jane Doe
+jane@example.com | (555) 010-0000 | linkedin.com/in/janedoe | github.com/janedoe
+
+Backend engineer with six years in payments.
+
+## Skills
+**Languages:** Python, Go
+**Cloud:** AWS, Docker
+
+## Experience
+**Senior Software Engineer — Acme Payments** | 2021 – Present
+- Cut checkout p99 latency from 900ms to 210ms
+
+## Education
+B.S. Computer Science, State University, 2018
+"""
+
+
+def test_render_parse():
+    import render
+    doc = render.parse(SAMPLE_MD)
+    assert doc["name"] == "Jane Doe"
+    assert len(doc["contact"]) == 4
+    titles = [s["title"] for s in doc["sections"]]
+    assert titles == ["Skills", "Experience", "Education"]
+    skills_kinds = [i[0] for i in doc["sections"][0]["items"]]
+    assert skills_kinds == ["text", "text"]  # skill groups are NOT role lines
+    assert doc["sections"][1]["items"][0][0] == "role"
+
+
+def test_render_links():
+    import render
+    assert render.link_for("jane@example.com")[0] == "mailto:jane@example.com"
+    assert render.link_for("linkedin.com/in/janedoe")[0] == "https://linkedin.com/in/janedoe"
+    assert render.link_for("github.com/janedoe")[0] == "https://github.com/janedoe"
+    assert render.link_for("(555) 010-0000")[0] is None
+
+
+def test_render_pdf_and_docx():
+    import render
+    pdf = render.to_pdf(SAMPLE_MD)
+    assert pdf.startswith(b"%PDF") and len(pdf) > 1000
+    assert b"/URI" in pdf  # hyperlinks embedded
+    docx = render.to_docx(SAMPLE_MD)
+    assert docx[:2] == b"PK" and len(docx) > 1000

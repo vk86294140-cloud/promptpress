@@ -36,9 +36,20 @@ macOS/Linux: same thing with `source .venv/bin/activate` and `export ANTHROPIC_A
 1. **My Resume tab** — paste your *master resume* once (every job, project,
    skill, metric you have — the more real detail, the better) and save.
 2. **Tailor tab** — paste a job description, press **Ctrl+Enter**.
-3. Review the score card and the rendered one-pager. **Download PDF** prints
-   just the resume sheet on one Letter page. Every result is also saved to
-   `data/outputs/` and listed in the **History** tab.
+3. Review the score card and the rendered one-pager. **Download DOCX** (safest
+   for ATS portals) or **Download PDF** (text-based, standard fonts, clickable
+   email/LinkedIn/GitHub links) — both are generated server-side, no browser
+   printing. Every result is also saved to `data/outputs/` and listed in the
+   **History** tab.
+
+### ATS notes
+
+- Upload the **DOCX** to job portals (Workday, Eightfold, Taleo, iCIMS…) —
+  their parsers handle it most reliably, so your auto-filled profile comes out
+  clean instead of scrambled.
+- The PDF uses Helvetica with a real text layer (verified extractable), no
+  header location, no tables in the body, standard section names — the things
+  ATS parsers care about.
 
 ## Which API — Claude or OpenAI?
 

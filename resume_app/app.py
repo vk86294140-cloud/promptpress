@@ -10,11 +10,12 @@ import re
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
 import llm
 import pipeline
+import render
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -106,6 +107,27 @@ def history():
         except (json.JSONDecodeError, OSError):
             continue
     return {"items": items}
+
+
+@app.get("/api/download/{name}/{fmt}")
+def download(name: str, fmt: str):
+    safe = Path(name).name
+    md_path = OUTPUT_DIR / f"{safe}.md"
+    if not md_path.exists():
+        raise HTTPException(404, "not found")
+    md = md_path.read_text(encoding="utf-8")
+    if fmt == "pdf":
+        data, media = render.to_pdf(md), "application/pdf"
+    elif fmt == "docx":
+        data, media = render.to_docx(md), (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+    else:
+        raise HTTPException(400, "format must be pdf or docx")
+    return Response(
+        data, media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="{safe}.{fmt}"'},
+    )
 
 
 @app.get("/api/history/{name}")
