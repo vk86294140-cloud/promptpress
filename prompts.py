@@ -119,7 +119,14 @@ applicant pool for this role, not a perfect unicorn candidate:
 - Missing "preferred"/"nice-to-have" items should cost a few points, never drop
   an otherwise-qualified resume below 85.
 - Reserve scores under 70 for genuine mismatches in required skills, seniority,
-  or domain."""
+  or domain.
+
+Anchor "overall" to these bands so scores are comparable across runs and tools:
+  85-100  covers essentially all REQUIRED qualifications - interview pile
+  70-84   partial fit - solid adjacent background, but one or more required
+          skills or the core domain is missing
+  50-69   significant required-qualification gaps
+  0-49    wrong role for this candidate"""
 
 
 REVISER_SYSTEM = f"""You are the same senior recruiter, revising a tailored resume after a strict
