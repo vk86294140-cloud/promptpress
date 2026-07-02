@@ -63,36 +63,31 @@ macOS/Linux: same thing with `source .venv/bin/activate` and `export ANTHROPIC_A
   header location, no tables in the body, standard section names — the things
   ATS parsers care about.
 
-## Which API — Claude, OpenAI, or Groq?
+## Which API? Free first, Claude kept as the quality option
 
-All three work. Auto-detection order: `ANTHROPIC_API_KEY` → `OPENAI_API_KEY` →
-`GROQ_API_KEY`, or force one with `RESUME_PROVIDER=anthropic|openai|groq`.
+Auto-detection order (first key found wins): **NVIDIA → Groq → Anthropic → OpenAI**.
+Set your NVIDIA key and everything runs free; keep your Anthropic key saved too —
+it is only used when you explicitly ask for it.
 
-| Provider  | Default model               | Cost per tailored resume | Quality |
-|-----------|-----------------------------|--------------------------|---------|
-| Anthropic | `claude-sonnet-5`           | ~5–15¢                   | Best writing (recommended for jobs you care about) |
-| NVIDIA    | `meta/llama-3.3-70b-instruct` | ~free (dev tier)       | Good, slightly more generic phrasing |
-| Groq      | `llama-3.3-70b-versatile`   | ~free                    | Good, fastest |
-| OpenAI    | `gpt-4o`                    | ~5–15¢                   | Good |
+| Priority | Provider  | Default model                 | Cost per resume | Notes |
+|----------|-----------|-------------------------------|-----------------|-------|
+| 1        | NVIDIA    | `meta/llama-3.3-70b-instruct` | free (dev tier) | Key from build.nvidia.com |
+| 2        | Groq      | `llama-3.3-70b-versatile`     | free            | Fastest |
+| 3        | Anthropic | `claude-sonnet-5`             | ~5–15¢          | Best writing — for jobs you really want |
+| 4        | OpenAI    | `gpt-4o`                      | ~5–15¢          | |
 
-Use NVIDIA (key from build.nvidia.com — needs `pip install openai` once):
+Setup (PowerShell — `pip install openai` once for NVIDIA/Groq/OpenAI):
 
 ```powershell
-$env:RESUME_PROVIDER = "nvidia"
-$env:NVIDIA_API_KEY = "nvapi-your-key"
+$env:NVIDIA_API_KEY = "nvapi-your-key"     # free default (build.nvidia.com)
+$env:ANTHROPIC_API_KEY = "sk-ant-..."      # optional, only used on request
 uvicorn app:app --port 8080
 ```
 
-Use Groq (PowerShell — needs `pip install openai` once):
-
-```powershell
-$env:RESUME_PROVIDER = "groq"
-$env:GROQ_API_KEY = "gsk_your_groq_key"
-uvicorn app:app --port 8080
-```
-
-Want maximum quality for one important application? `$env:RESUME_MODEL = "claude-opus-4-8"`
-(that's the ~$1/run model — the default is now Sonnet at a tenth of the cost).
+Per-run overrides:
+- `$env:RESUME_PROVIDER = "anthropic"` — switch to Claude quality for an important application
+- `$env:RESUME_MODEL = "meta/llama-3.1-405b-instruct"` — NVIDIA's biggest model (slower, stronger)
+- Avoid `claude-opus-4-8` unless you accept ~$1+/run — that was the source of the high cost
 
 ## Honesty guardrail (read this)
 
