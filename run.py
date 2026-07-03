@@ -96,6 +96,27 @@ def main():
             return
         print("Old server stopped.")
 
+    # Loud, unambiguous startup banner: tell the user exactly which provider
+    # was detected, so silent demo mode is impossible to miss.
+    import app as app_module  # triggers .env load + provider detection
+    provider = app_module.llm.detect_provider()
+    model = app_module.llm.active_model()
+    print()
+    print("=" * 62)
+    if provider == "demo":
+        print("  WARNING: NO API KEY FOUND — running in DEMO mode.")
+        print("  Tailoring will return a FAKE sample resume (Jane Doe).")
+        print("  Fix: open the .env file in this folder and set ONE key,")
+        print("  e.g.  NVIDIA_API_KEY=nvapi-your-real-key")
+        print("  (no spaces around =, no quotes), then close this window")
+        print("  and double-click start.bat again.")
+    else:
+        print(f"  Provider: {provider}   Model: {model}")
+        print("  API key loaded — real tailoring is ON.")
+    print(f"  Build: v{local}")
+    print("=" * 62)
+    print()
+
     threading.Thread(target=_open_browser_when_ready, daemon=True).start()
     print(f"Starting Resume Tailor v{local} — your browser will open {URL} when it's ready...")
 

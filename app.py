@@ -16,23 +16,38 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()  # reads .env in this directory so keys survive across restarts
-except ImportError:
-    pass  # python-dotenv not installed yet — env vars still work if set another way
-
-import jobs as jobs_mod
-import llm
-import pipeline
-import prompts
-import render
-
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
+APP_VERSION = "18"
 
-APP_VERSION = "17"
+
+def _load_env():
+    """Load .env with zero external dependencies, so a missing python-dotenv
+    package can never silently drop the user's API keys. Existing real
+    environment variables always win over the file."""
+    env_path = BASE_DIR / ".env"
+    if not env_path.exists():
+        return
+    for raw in env_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip().strip('"').strip("'")  # tolerate quotes and stray spaces
+        if key and key not in os.environ:
+            os.environ[key] = val
+
+
+_load_env()
+
+import jobs as jobs_mod  # noqa: E402  (imported after env is loaded)
+import llm  # noqa: E402
+import pipeline  # noqa: E402
+import prompts  # noqa: E402
+import render  # noqa: E402
+
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 
 app = FastAPI(title="Resume Tailor")
 
