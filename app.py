@@ -32,7 +32,7 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 
-APP_VERSION = "16"
+APP_VERSION = "17"
 
 app = FastAPI(title="Resume Tailor")
 
