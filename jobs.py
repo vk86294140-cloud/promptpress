@@ -19,6 +19,7 @@ Freshness: every job carries posted_epoch/age_minutes; search() can filter to
 jobs posted within the last N hours — a just-posted job has few applicants.
 """
 
+import concurrent.futures
 import datetime
 import json
 import os
@@ -449,21 +450,30 @@ def filter_fresh(jobs: list, max_age_hours: float) -> list:
 def search(query: str, location: str, master_resume: str,
            limit: int = 15, max_age_hours: float = 0, entry_level_only: bool = False,
            usa_only: bool = False) -> dict:
-    """Search all available boards, filter by freshness, rank by fit."""
+    """Search all available boards in parallel, filter by freshness, rank by fit.
+
+    Each board is an independent HTTP call (up to TIMEOUT=15s apiece); run
+    sequentially a 9-source search could take their sum in the worst case.
+    Fetching them concurrently bounds total latency to roughly the slowest
+    single source instead."""
     jobs, errors = [], []
-    for name, fetch in (("jsearch", lambda: _jsearch(query, location)),
-                        ("remotive", lambda: _remotive(query)),
-                        ("remoteok", lambda: _remoteok(query)),
-                        ("jobicy", lambda: _jobicy(query)),
-                        ("themuse", lambda: _themuse(query, location)),
-                        ("arbeitnow", lambda: _arbeitnow(query)),
-                        ("jooble", lambda: _jooble(query, location)),
-                        ("findwork", lambda: _findwork(query, location)),
-                        ("adzuna", lambda: _adzuna(query, location))):
-        try:
-            jobs.extend(fetch())
-        except Exception as exc:
-            errors.append(f"{name}: {exc}")
+    sources = (("jsearch", lambda: _jsearch(query, location)),
+               ("remotive", lambda: _remotive(query)),
+               ("remoteok", lambda: _remoteok(query)),
+               ("jobicy", lambda: _jobicy(query)),
+               ("themuse", lambda: _themuse(query, location)),
+               ("arbeitnow", lambda: _arbeitnow(query)),
+               ("jooble", lambda: _jooble(query, location)),
+               ("findwork", lambda: _findwork(query, location)),
+               ("adzuna", lambda: _adzuna(query, location)))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(sources)) as pool:
+        future_to_name = {pool.submit(fetch): name for name, fetch in sources}
+        for future in concurrent.futures.as_completed(future_to_name):
+            name = future_to_name[future]
+            try:
+                jobs.extend(future.result())
+            except Exception as exc:
+                errors.append(f"{name}: {exc}")
     # de-dup by title+company
     seen, unique = set(), []
     for j in jobs:
