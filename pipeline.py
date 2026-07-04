@@ -112,11 +112,15 @@ def tailor(job_description: str, master_resume: str) -> dict:
             resume_md, scores = revised, revised_scores
         revisions += 1
 
+    served_provider, served_model = llm.last_served_by()
     return {
         "resume_markdown": resume_md,
         "scores": scores,
         "revisions": revisions,
         "target_met": _meets_target(scores),
-        "provider": llm.detect_provider(),
-        "model": llm.active_model(),
+        # the provider/model that ACTUALLY served the write call — accurate
+        # even if the primary timed out and a fallback took over, unlike a
+        # static llm.detect_provider()/active_model() read
+        "provider": served_provider,
+        "model": served_model,
     }

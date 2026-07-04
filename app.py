@@ -206,7 +206,8 @@ def check(body: CheckRequest, request: Request):
         scores = pipeline.score(jd, resume)
     except Exception as exc:
         raise HTTPException(502, f"Check failed: {exc}") from exc
-    return {"scores": scores, "provider": llm.detect_provider(), "model": llm.active_model()}
+    served_provider, served_model = llm.last_served_by()
+    return {"scores": scores, "provider": served_provider, "model": served_model}
 
 
 class JobSearchRequest(BaseModel):

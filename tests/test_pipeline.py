@@ -2,6 +2,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 os.environ["RESUME_PROVIDER"] = "demo"
@@ -250,23 +252,103 @@ def test_llm_client_gets_bounded_timeout_and_no_silent_retries(monkeypatch):
             })()})()
 
     monkeypatch.setattr("openai.OpenAI", FakeOpenAI)
-    llm._openai_compatible("sys", "user", 100, base_url="https://example.com", api_key="k")
+    llm._openai_compatible("sys", "user", 100, "test-model", "groq",
+                           base_url="https://example.com", api_key="k")
     assert captured.get("timeout") == llm.LLM_TIMEOUT
     assert captured.get("max_retries") == llm.LLM_MAX_RETRIES
     assert llm.LLM_TIMEOUT <= 120  # bounded, not the SDK's ~600s default
 
 
-def test_write_timeout_raises_a_clear_friendly_error(monkeypatch):
-    """The write step must never fail silently or hang — it should raise a
-    specific, actionable message naming the provider and the timeout."""
+def test_provider_timeout_error_is_clear_and_specific():
+    """The write step must never fail silently or hang — timing out should
+    raise a specific, actionable message naming the provider and the limit."""
     import llm
+    err = llm.ProviderTimeout("nvidia", TimeoutError("slow"))
+    assert "nvidia" in str(err)
+    assert f"{llm.LLM_TIMEOUT:.0f}s" in str(err)
 
-    def boom(*a, **k):
-        raise RuntimeError("boom")
-    monkeypatch.setattr(llm, "_demo", lambda kind: (_ for _ in ()).throw(RuntimeError("unused")))
 
-    err = llm._friendly_timeout_error("nvidia", TimeoutError("slow"))
-    assert "nvidia" in str(err) and "Nothing was faked" in str(err)
+def test_provider_chain_prefers_groq_over_nvidia(monkeypatch):
+    """Groq's LPU hardware is materially faster than NVIDIA's GPU-hosted free
+    tier for the same models — verify it's tried first when both are set."""
+    import llm
+    monkeypatch.delenv("RESUME_PROVIDER", raising=False)
+    monkeypatch.delenv("RESUME_BASE_URL", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-x")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-x")
+    chain = llm.provider_chain()
+    assert chain.index("groq") < chain.index("nvidia")
+    assert llm.detect_provider() == "groq"
+
+
+def test_explicit_provider_override_disables_fallback(monkeypatch):
+    """An explicit RESUME_PROVIDER is a deliberate choice — it must never be
+    silently overridden by an automatic fallback, even if other keys exist."""
+    import llm
+    monkeypatch.setenv("RESUME_PROVIDER", "nvidia")
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-x")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-x")
+    assert llm.provider_chain() == ["nvidia"]
+
+
+def test_automatic_fallback_on_timeout_only(monkeypatch):
+    """complete() should transparently fall through to the next provider in
+    the chain ONLY on a ProviderTimeout — and last_served_by() must then
+    accurately report which provider really answered, not the primary."""
+    import llm
+    monkeypatch.delenv("RESUME_PROVIDER", raising=False)
+    monkeypatch.delenv("RESUME_BASE_URL", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-x")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-x")
+    assert llm.provider_chain() == ["groq", "nvidia"]
+
+    def fake_dispatch(provider, system, user, max_tokens, temperature, kind):
+        if provider == "groq":
+            raise llm.ProviderTimeout("groq", TimeoutError())
+        return f"served by {provider}"
+
+    monkeypatch.setattr(llm, "_dispatch", fake_dispatch)
+    result = llm.complete("sys", "user")
+    assert result == "served by nvidia"
+    assert llm.last_served_by() == ("nvidia", llm.model_for("nvidia"))
+
+
+def test_non_timeout_errors_do_not_trigger_fallback(monkeypatch):
+    """A real error (e.g. a refusal) must surface immediately — silently
+    retrying on a different provider wouldn't fix it and would hide the
+    real problem."""
+    import llm
+    monkeypatch.delenv("RESUME_PROVIDER", raising=False)
+    monkeypatch.delenv("RESUME_BASE_URL", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-x")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-x")
+    calls = []
+
+    def fake_dispatch(provider, system, user, max_tokens, temperature, kind):
+        calls.append(provider)
+        raise RuntimeError("the model refused this request")
+
+    monkeypatch.setattr(llm, "_dispatch", fake_dispatch)
+    with pytest.raises(RuntimeError, match="refused"):
+        llm.complete("sys", "user")
+    assert calls == ["groq"]  # never tried nvidia — this wasn't a timeout
+
+
+def test_all_providers_timing_out_gives_one_combined_clear_message(monkeypatch):
+    import llm
+    monkeypatch.delenv("RESUME_PROVIDER", raising=False)
+    monkeypatch.delenv("RESUME_BASE_URL", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-x")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-x")
+
+    def fake_dispatch(provider, system, user, max_tokens, temperature, kind):
+        raise llm.ProviderTimeout(provider, TimeoutError())
+
+    monkeypatch.setattr(llm, "_dispatch", fake_dispatch)
+    with pytest.raises(RuntimeError) as exc_info:
+        llm.complete("sys", "user")
+    msg = str(exc_info.value)
+    assert "groq" in msg and "nvidia" in msg and "Nothing was faked" in msg
 
 
 def test_revision_failure_keeps_the_already_written_resume(monkeypatch):
