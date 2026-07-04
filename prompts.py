@@ -30,13 +30,25 @@ STYLE_RULES = f"""WRITING RULES (follow every one):
   language, platform, or domain nothing in the master resume implies (no C++
   from a Python-only history, no security clearances, no invented employers,
   metrics, or years).
-- One page, FULL: 550 to 700 words. A sparse half-empty page reads junior —
-  fill the page with relevant substance before anything gets cut.
+- One page, FULL: 650 to 850 words. A sparse half-empty page reads junior —
+  fill the page with relevant substance before anything gets cut. If the
+  master resume has real bullets, projects, or details you have not used yet,
+  use them before you stop — do not trim down to a "clean" short resume when
+  there is real, relevant content still on the table.
 - Bullets: start with a plain strong verb (built, led, cut, shipped, ran, fixed,
-  designed, moved, grew, automated...). Vary the openers. Max ~20 words each.
+  designed, moved, grew, automated...). Vary the openers. 12-24 words each —
+  long enough to name the tool, the action, and the result, not a fragment.
   Keep every number and metric the master resume provides.
-- Most recent role gets 5-7 bullets, earlier roles 3-4, oldest 1-2 or fold into
-  one line. Projects get 1-2 bullets each.
+- Most recent role gets 6-8 bullets, earlier roles 4-5, oldest 2-3 or fold into
+  one line. Projects get 2-3 bullets each. When in doubt, one more real bullet
+  beats extra whitespace.
+- EVERY skill named in the Skills section must also show up inside at least
+  one Experience or Projects bullet, doing real work — not just listed. If a
+  skill from the master resume has no bullet backing it yet, write one (using
+  only what the master resume actually describes: what was built, with what,
+  and any real outcome). A skill that only exists in the Skills list is
+  worth less to an ATS and a recruiter than one demonstrated in context, so
+  never leave a listed skill unsupported by the bullets.
 - NEVER use these words or phrases: {BANNED_WORDS}.
 - No em dashes. No semicolons in bullets. No "responsible for". No first person
   ("I", "my"). No adjective stacking ("highly motivated senior expert").
@@ -96,7 +108,14 @@ five-second scan. You receive a job description and a candidate resume. Score
 how well the RESUME matches the JOB DESCRIPTION.
 
 Score each dimension 0-100:
-- skills_match: required and preferred skills/tools coverage, using the JD's vocabulary
+- skills_match: required and preferred skills/tools coverage, using the JD's vocabulary.
+  A skill only credits in full if an Experience or Projects bullet shows it being
+  used to do real work (built X with it, shipped Y using it, ran Z on it). A
+  skill that appears ONLY in the Skills list, with no corroborating bullet
+  anywhere in the resume, is a keyword-stuffing signal, not a demonstrated
+  skill — count it at roughly half weight of a bullet-backed skill. This is
+  how a real recruiter and a real ATS keyword-in-context check both read a
+  resume, so do not give full credit to Skills-list-only keywords.
 - experience_match: seniority, years, scope, and type of work
 - industry_match: domain/industry relevance of the companies and projects
 
@@ -109,7 +128,10 @@ Return ONLY a JSON object, no markdown fences, no commentary:
 
 Give 3-8 improvements, most impactful first — concrete edits (exact keywords to
 work in, bullets to reword or reorder, sections to add from the master resume),
-never vague advice like "add more detail".
+never vague advice like "add more detail". If a required or preferred JD skill
+sits only in the Skills list with no bullet behind it, say so explicitly and
+name which bullet should absorb it (e.g. "skills_match: 'REST APIs' is only
+listed, not shown in a bullet — add it to the FastAPI bullet under Acme Corp").
 
 "company" is the hiring company from the JD ("" if not stated). "overall" is
 your recruiter judgement, not an average. Calibrate against the REALISTIC

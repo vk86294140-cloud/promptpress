@@ -64,13 +64,21 @@ def link_for(token: str):
 # ---------------------------------------------------------------- PDF
 
 def to_pdf(md: str) -> bytes:
-    """Render to PDF, auto-shrinking the type until it fits exactly one page."""
-    data = b""
-    for scale in (1.0, 0.94, 0.88, 0.82, 0.76):
+    """Render to PDF at the largest type scale that still fits one page.
+
+    Shrinks when content overflows, but also grows past the 1.0 baseline when
+    the content is short — a thin resume at 1.0x leaves the bottom of the page
+    empty, which reads as sparse. Growing the scale fills the page instead of
+    leaving whitespace, without changing a single word of the content.
+    """
+    fits, overflow = None, None
+    for scale in (1.30, 1.24, 1.18, 1.12, 1.06, 1.0, 0.94, 0.88, 0.82, 0.76):
         data, pages = _build_pdf(md, scale)
         if pages <= 1:
-            return data
-    return data
+            fits = data
+            break
+        overflow = data
+    return fits if fits is not None else overflow
 
 
 def _build_pdf(md: str, scale: float):
