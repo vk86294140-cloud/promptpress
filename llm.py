@@ -88,17 +88,40 @@ def complete(system: str, user: str, max_tokens: int = 4096, kind: str = "text",
     return _demo(kind)
 
 
-def _anthropic(system: str, user: str, max_tokens: int) -> str:
-    from anthropic import Anthropic
+# Every provider call is bounded to this many seconds, with NO silent SDK
+# retries. Without this, the openai/anthropic SDKs default to ~10 minutes per
+# call plus up to 2 automatic retries — and a tailor run chains up to 9 such
+# calls (write, score, up to 2 revision rounds each doing revise+rescore, plus
+# the scorer's own retry-on-bad-JSON). One slow free-tier call anywhere in
+# that chain could silently run past any frontend timeout. Bounding each call
+# means a slow provider fails fast and predictably instead of hanging.
+LLM_TIMEOUT = float(os.environ.get("RESUME_LLM_TIMEOUT", "45"))
+LLM_MAX_RETRIES = int(os.environ.get("RESUME_LLM_MAX_RETRIES", "0"))
 
-    client = Anthropic()
-    response = client.messages.create(
-        model=active_model(),
-        max_tokens=max_tokens,
-        thinking={"type": "adaptive"},
-        system=system,
-        messages=[{"role": "user", "content": user}],
+
+def _friendly_timeout_error(provider: str, exc: Exception) -> RuntimeError:
+    return RuntimeError(
+        f"The {provider} provider didn't respond within {LLM_TIMEOUT:.0f}s "
+        f"(it may be overloaded on its free tier). Nothing was faked — this "
+        f"step just didn't get a real answer in time. Try again, or switch "
+        f"providers (RESUME_PROVIDER=groq/gemini/anthropic). [{exc.__class__.__name__}]"
     )
+
+
+def _anthropic(system: str, user: str, max_tokens: int) -> str:
+    import anthropic as anthropic_sdk
+
+    client = anthropic_sdk.Anthropic(timeout=LLM_TIMEOUT, max_retries=LLM_MAX_RETRIES)
+    try:
+        response = client.messages.create(
+            model=active_model(),
+            max_tokens=max_tokens,
+            thinking={"type": "adaptive"},
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+    except (anthropic_sdk.APITimeoutError, anthropic_sdk.APIConnectionError) as exc:
+        raise _friendly_timeout_error("anthropic", exc) from exc
     if response.stop_reason == "refusal":
         raise RuntimeError("The model declined this request. Rephrase and try again.")
     return "".join(block.text for block in response.content if block.type == "text")
@@ -107,21 +130,26 @@ def _anthropic(system: str, user: str, max_tokens: int) -> str:
 def _openai_compatible(system: str, user: str, max_tokens: int,
                        base_url: str = None, api_key: str = None,
                        temperature: float = None) -> str:
+    import openai as openai_sdk
     from openai import OpenAI
 
-    client = OpenAI(base_url=base_url, api_key=api_key) if base_url else OpenAI()
+    client = OpenAI(base_url=base_url, api_key=api_key, timeout=LLM_TIMEOUT, max_retries=LLM_MAX_RETRIES) \
+        if base_url else OpenAI(timeout=LLM_TIMEOUT, max_retries=LLM_MAX_RETRIES)
     kwargs = {}
     if temperature is not None:
         kwargs["temperature"] = temperature
-    response = client.chat.completions.create(
-        model=active_model(),
-        max_tokens=max_tokens,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        **kwargs,
-    )
+    try:
+        response = client.chat.completions.create(
+            model=active_model(),
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            **kwargs,
+        )
+    except (openai_sdk.APITimeoutError, openai_sdk.APIConnectionError) as exc:
+        raise _friendly_timeout_error(detect_provider(), exc) from exc
     return response.choices[0].message.content or ""
 
 

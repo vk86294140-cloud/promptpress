@@ -9,7 +9,11 @@ import llm
 import prompts
 
 TARGET = 85
-MAX_REVISIONS = int(os.environ.get("RESUME_MAX_REVISIONS", "2"))
+# Worst case with N revisions: write(1) + score(<=2) + N*(revise(1)+score(<=2))
+# calls, each bounded by llm.LLM_TIMEOUT. Default 1 keeps that bounded and
+# fast on free-tier providers; raise it for a paid/fast provider if you want
+# more polishing passes.
+MAX_REVISIONS = int(os.environ.get("RESUME_MAX_REVISIONS", "1"))
 DIMENSIONS = ("skills_match", "experience_match", "industry_match", "overall")
 
 
@@ -86,17 +90,23 @@ def tailor(job_description: str, master_resume: str) -> dict:
 
     revisions = 0
     while revisions < MAX_REVISIONS and not scores.get("score_error") and not _meets_target(scores):
-        revised = llm.complete(
-            prompts.REVISER_SYSTEM,
-            prompts.reviser_user(
-                job_description, master_resume, resume_md,
-                json.dumps(scores, indent=2),
-            ),
-            max_tokens=4096,
-            kind="resume",
-        ).strip()
-        revised_scores = score(job_description, revised)
-        revised_scores["ats_keyword_scan"] = ats.scan(job_description, revised)
+        try:
+            revised = llm.complete(
+                prompts.REVISER_SYSTEM,
+                prompts.reviser_user(
+                    job_description, master_resume, resume_md,
+                    json.dumps(scores, indent=2),
+                ),
+                max_tokens=4096,
+                kind="resume",
+            ).strip()
+            revised_scores = score(job_description, revised)
+            revised_scores["ats_keyword_scan"] = ats.scan(job_description, revised)
+        except Exception:
+            # A slow/failed revision step must never lose the already-real,
+            # already-scored resume from the write step (or a prior
+            # revision) — stop polishing and return what we have.
+            break
         # keep the revision only if it didn't make things worse
         if revised_scores["overall"] >= scores["overall"]:
             resume_md, scores = revised, revised_scores

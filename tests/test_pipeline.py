@@ -230,3 +230,60 @@ def test_entry_level_filter_never_silently_drops_unclear():
     titles = [j["title"] for j in filtered]
     assert "Senior Python Engineer" not in titles
     assert "Python Engineer" in titles  # "unclear"/entry_mid jobs are kept, not dropped
+
+
+def test_llm_client_gets_bounded_timeout_and_no_silent_retries(monkeypatch):
+    """The actual root cause of the 4-minute hang: OpenAI()/Anthropic() clients
+    previously had no explicit timeout/retry limit, defaulting to ~10 minutes
+    and 2 silent retries per call. Verify the fix passes bounded values."""
+    import llm
+    captured = {}
+
+    class FakeResponse:
+        choices = [type("C", (), {"message": type("M", (), {"content": "ok"})()})()]
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+            self.chat = type("Chat", (), {"completions": type("Comp", (), {
+                "create": staticmethod(lambda **kw: FakeResponse())
+            })()})()
+
+    monkeypatch.setattr("openai.OpenAI", FakeOpenAI)
+    llm._openai_compatible("sys", "user", 100, base_url="https://example.com", api_key="k")
+    assert captured.get("timeout") == llm.LLM_TIMEOUT
+    assert captured.get("max_retries") == llm.LLM_MAX_RETRIES
+    assert llm.LLM_TIMEOUT <= 120  # bounded, not the SDK's ~600s default
+
+
+def test_write_timeout_raises_a_clear_friendly_error(monkeypatch):
+    """The write step must never fail silently or hang — it should raise a
+    specific, actionable message naming the provider and the timeout."""
+    import llm
+
+    def boom(*a, **k):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(llm, "_demo", lambda kind: (_ for _ in ()).throw(RuntimeError("unused")))
+
+    err = llm._friendly_timeout_error("nvidia", TimeoutError("slow"))
+    assert "nvidia" in str(err) and "Nothing was faked" in str(err)
+
+
+def test_revision_failure_keeps_the_already_written_resume(monkeypatch):
+    """A slow/failed revision call must not lose the real, already-scored
+    resume from the write step — it should degrade gracefully, not crash."""
+    import llm
+    calls = {"n": 0}
+
+    def fake_complete(system, user, max_tokens=4096, kind="text", temperature=None):
+        if kind == "resume":
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return "# Real Written Resume\nreal@example.com\n\nSome content"
+            raise RuntimeError("provider timed out")  # the revision call fails
+        return '{"skills_match": 60, "experience_match": 60, "industry_match": 60, "overall": 60}'
+
+    monkeypatch.setattr(llm, "complete", fake_complete)
+    result = pipeline.tailor("some job description " * 10, "some master resume")
+    assert "Real Written Resume" in result["resume_markdown"]
+    assert result["revisions"] == 0  # loop broke on the failed revision, didn't crash

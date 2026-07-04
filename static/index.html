@@ -172,11 +172,20 @@ function ensureUser(){
 }
 async function api(url, opts = {}, retried = false){
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 240000);
+  // Server-side, every LLM call is now bounded (RESUME_LLM_TIMEOUT, default
+  // 45s) with no silent SDK retries, so a full tailor run has a real worst
+  // case ceiling. This client timeout is a safety net above that ceiling,
+  // not the thing doing the bounding.
+  const t = setTimeout(() => ctrl.abort(), 330000);
   opts.headers = Object.assign({}, opts.headers, {"X-User": ensureUser(), "X-App-Key": rtKey});
   let r;
   try { r = await fetch(url, Object.assign({signal: ctrl.signal}, opts)); }
-  catch(e){ clearTimeout(t); throw new Error(e.name === "AbortError" ? "Timed out after 4 minutes — try again." : "Server unreachable."); }
+  catch(e){
+    clearTimeout(t);
+    throw new Error(e.name === "AbortError"
+      ? "No response after 5.5 minutes — the AI provider is likely overloaded. Try again, or switch RESUME_PROVIDER in your .env (groq/gemini/anthropic)."
+      : "Server unreachable.");
+  }
   clearTimeout(t);
   if (r.status === 401 && !retried){
     rtKey = prompt("This app is private. Enter the access key:") || "";
