@@ -234,6 +234,34 @@ def test_entry_level_filter_never_silently_drops_unclear():
     assert "Python Engineer" in titles  # "unclear"/entry_mid jobs are kept, not dropped
 
 
+def test_country_estimation():
+    import jobs as jobs_mod
+    assert jobs_mod.estimate_country({"location": "Austin, TX"})["is_us"] is True
+    assert jobs_mod.estimate_country({"location": "New York, United States"})["is_us"] is True
+    assert jobs_mod.estimate_country({"location": "London, UK"})["is_us"] is False
+    assert jobs_mod.estimate_country({"location": "Berlin, Germany"})["is_us"] is False
+    assert jobs_mod.estimate_country({"location": "Remote"})["is_us"] is None
+    assert jobs_mod.estimate_country({"location": ""})["is_us"] is None
+
+
+def test_usa_only_filter_excludes_non_us_and_ambiguous_but_keeps_visible():
+    import jobs as jobs_mod
+    master = "python engineer"
+    listing = [
+        {"title": "Python Engineer", "company": "A", "description": "python role " * 5,
+         "url": "", "salary": "", "location": "Austin, TX"},
+        {"title": "Python Engineer", "company": "B", "description": "python role " * 5,
+         "url": "", "salary": "", "location": "London, UK"},
+        {"title": "Python Engineer", "company": "C", "description": "python role " * 5,
+         "url": "", "salary": "", "location": "Remote"},
+    ]
+    ranked = jobs_mod.rank(listing, master)
+    # every job keeps a country field regardless of filtering (transparent, auditable)
+    assert all("country" in j for j in ranked)
+    strict = [j for j in ranked if j["country"]["is_us"] is True]
+    assert [j["company"] for j in strict] == ["A"]  # only the clear-US listing survives
+
+
 def test_llm_client_gets_bounded_timeout_and_no_silent_retries(monkeypatch):
     """The actual root cause of the 4-minute hang: OpenAI()/Anthropic() clients
     previously had no explicit timeout/retry limit, defaulting to ~10 minutes

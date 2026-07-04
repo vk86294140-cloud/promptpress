@@ -338,6 +338,58 @@ def estimate_experience_level(text: str) -> dict:
     return {"level": level, "min_years": min_years, "matches_0_4": level in ("entry_mid", "unclear")}
 
 
+# ---------------------------------------------------------------- country / USA-only heuristic
+
+_US_STATE_ABBR = {
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL",
+    "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT",
+    "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
+    "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC",
+}
+_US_STATE_NAMES = (
+    "alabama, alaska, arizona, arkansas, california, colorado, connecticut, "
+    "delaware, florida, georgia, hawaii, idaho, illinois, indiana, iowa, "
+    "kansas, kentucky, louisiana, maine, maryland, massachusetts, michigan, "
+    "minnesota, mississippi, missouri, montana, nebraska, nevada, "
+    "new hampshire, new jersey, new mexico, new york, north carolina, "
+    "north dakota, ohio, oklahoma, oregon, pennsylvania, rhode island, "
+    "south carolina, south dakota, tennessee, texas, utah, vermont, virginia, "
+    "washington, west virginia, wisconsin, wyoming, district of columbia"
+).split(", ")
+_US_NAME_RE = re.compile(r"\b(united states|u\.s\.a\.?|usa)\b", re.I)
+_NON_US_COUNTRY_RE = re.compile(
+    r"\b(canada|mexico|united kingdom|\buk\b|england|scotland|wales|ireland|"
+    r"germany|france|spain|italy|portugal|netherlands|belgium|switzerland|"
+    r"austria|poland|sweden|norway|denmark|finland|india|pakistan|"
+    r"philippines|singapore|malaysia|indonesia|vietnam|thailand|china|japan|"
+    r"south korea|australia|new zealand|brazil|argentina|chile|colombia|"
+    r"nigeria|kenya|south africa|egypt|israel|uae|dubai|saudi arabia|"
+    r"europe\b|\beu\b|latam|apac)\b", re.I)
+
+
+def estimate_country(job: dict) -> dict:
+    """Best-effort read on whether a listing resolves to the United States,
+    from its location text. Ambiguous/ remote-with-no-location reads as
+    unclear (is_us=None) rather than a guess in either direction — the same
+    'label, don't silently drop' principle as genuineness and experience
+    level above. Callers that need strict USA-only filtering treat both
+    False and None as excluded."""
+    loc = job.get("location") or ""
+    loc_low = loc.lower()
+
+    if _US_NAME_RE.search(loc_low) or re.search(r",\s*usa\b", loc_low):
+        return {"is_us": True, "confidence": "high", "signal": "location names United States"}
+    for abbr in _US_STATE_ABBR:
+        if re.search(rf"\b{abbr}\b", loc):
+            return {"is_us": True, "confidence": "high", "signal": f"location contains US state code {abbr}"}
+    for name in _US_STATE_NAMES:
+        if name in loc_low:
+            return {"is_us": True, "confidence": "high", "signal": f"location names {name.title()}"}
+    if _NON_US_COUNTRY_RE.search(loc_low):
+        return {"is_us": False, "confidence": "high", "signal": "location names a non-US country/region"}
+    return {"is_us": None, "confidence": "low", "signal": "location text does not clearly resolve to a country"}
+
+
 # ---------------------------------------------------------------- genuineness heuristic
 
 _ATS_DOMAINS = ("greenhouse.io", "lever.co", "myworkdayjobs.com", "smartrecruiters.com",
@@ -381,6 +433,7 @@ def rank(jobs: list, master_resume: str) -> list:
         job["fit"] = ats.scan(text, master_resume)["percent"] if job["description"] else 0
         job["experience"] = estimate_experience_level(text)
         job["genuineness"] = score_genuineness(job)
+        job["country"] = estimate_country(job)
     jobs.sort(key=lambda j: -j["fit"])
     return jobs
 
@@ -394,7 +447,8 @@ def filter_fresh(jobs: list, max_age_hours: float) -> list:
 
 
 def search(query: str, location: str, master_resume: str,
-           limit: int = 15, max_age_hours: float = 0, entry_level_only: bool = False) -> dict:
+           limit: int = 15, max_age_hours: float = 0, entry_level_only: bool = False,
+           usa_only: bool = False) -> dict:
     """Search all available boards, filter by freshness, rank by fit."""
     jobs, errors = [], []
     for name, fetch in (("jsearch", lambda: _jsearch(query, location)),
@@ -427,6 +481,15 @@ def search(query: str, location: str, master_resume: str,
         # "unclear" jobs are kept, never silently hidden — only jobs explicitly
         # marked senior are excluded, matching the spec's own transparency rule
         ranked = [j for j in ranked if j["experience"]["level"] != "senior"]
+    total_before_country_filter = len(ranked)
+    if usa_only:
+        # Strict enforcement: unlike the experience filter, an ambiguous
+        # location does not pass here — a "USA-only" toggle is a stronger
+        # promise than "don't show me senior roles", so both explicit
+        # non-US and unresolvable locations are excluded, not just the clear
+        # non-US ones. Every job still carries its own "country" field so
+        # this stays visible/auditable, not a silent guess.
+        ranked = [j for j in ranked if j["country"]["is_us"] is True]
     ranked = ranked[:limit]
     return {
         "jobs": ranked,
@@ -435,4 +498,5 @@ def search(query: str, location: str, master_resume: str,
         "jsearch_enabled": bool(os.environ.get("JSEARCH_API_KEY")),
         "total_before_freshness_filter": len(unique),
         "total_before_experience_filter": total_before_experience_filter,
+        "total_before_country_filter": total_before_country_filter,
     }

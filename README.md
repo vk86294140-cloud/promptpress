@@ -145,6 +145,12 @@ fit against your master resume — instantly and at zero AI cost. One click on
   findwork.dev/developers/api → `FINDWORK_API_KEY`.
 - **Arbeitnow** (Europe + remote): keyless, included automatically.
 
+Check **USA only** to drop listings that don't clearly resolve to a US
+location. Every job also shows a small **US / Non-US / Location unclear**
+badge either way — the filter only hides jobs, it never silently guesses;
+a listing with no country info shown is labeled "unclear" and excluded from
+USA-only results rather than assumed to be either.
+
 ### Beating the applicant crowd
 
 There is no public API that reports applicant counts (that data lives inside
@@ -153,6 +159,30 @@ hour — they have almost no applicants yet.** Use the freshness dropdown
 ("Last hour" / "Last 3 hours"), check a few times a day, and tailor + apply
 immediately when a high-fit fresh posting appears. Each listing shows its age;
 green minutes = the window where you're among the first applicants.
+
+## Share with one friend right now (no deploy, 2 minutes)
+
+For a quick one-off — testing together tonight, not a standing shared
+service — skip Render entirely and tunnel your own already-running local
+server:
+
+1. Start the app normally (`start.bat` / `start.sh`), confirm it opens at
+   `http://localhost:8080`.
+2. In a second terminal: `npx localtunnel --port 8080` (or
+   [ngrok](https://ngrok.com): `ngrok http 8080`, free account, no card).
+   Either prints a public URL like `https://random-name.loca.lt`.
+3. Send your friend that URL. They pick their own workspace name in the app
+   the same way you do — their resume never touches yours.
+4. Close the tunnel (Ctrl+C) when you're done. Nothing persists remotely;
+   your machine was the server the whole time.
+
+This costs nothing, needs no signup for localtunnel, and uses **your**
+API key for both of you — fine for one friend, one evening. For anything
+longer-lived or more than one or two people, use the Render deploy below
+instead so it isn't tied to your laptop staying on.
+
+**Never commit your `.env` file or paste your API key anywhere but that
+local file** — the tunnel only exposes port 8080, never your `.env`.
 
 ## Go live (share with friends, free)
 
