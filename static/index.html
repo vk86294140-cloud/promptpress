@@ -142,6 +142,7 @@
         <option value="72">Last 3 days</option>
         <option value="0">Any age</option>
       </select>
+      <label class="hint" style="display:flex;align-items:center;gap:6px;white-space:nowrap"><input type="checkbox" id="jobentry"> Entry/mid-level only</label>
       <button class="btn" id="jobsearch">Search</button>
     </div>
     <p class="hint">Searches Remotive, RemoteOK, Jobicy, The Muse (incl. on-site US jobs), and Arbeitnow out of the box (no keys) — plus Adzuna, Jooble, Findwork, and JSearch (LinkedIn/Indeed/Glassdoor postings) when their keys are in your .env. Every result is instantly fit-scored against your master resume; no AI cost.</p>
@@ -407,14 +408,18 @@ $("jobsearch").onclick = async () => {
   msg.textContent = ""; box.innerHTML = "";
   try{
     const r = await api("/api/jobs", {method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({query: $("jobquery").value.trim(), location: $("jobloc").value.trim(), max_age_hours: parseFloat($("jobage").value)})});
+      body: JSON.stringify({query: $("jobquery").value.trim(), location: $("jobloc").value.trim(), max_age_hours: parseFloat($("jobage").value), entry_level_only: $("jobentry").checked})});
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || "Search failed");
     const tips = []; if (!d.jsearch_enabled) tips.push("JSEARCH_API_KEY unlocks LinkedIn/Indeed/Glassdoor postings (best freshness)"); if (!d.adzuna_enabled) tips.push("ADZUNA keys add US/local boards"); msg.textContent = tips.length ? "Tip: " + tips.join("; ") + "." : "";
     if (!d.jobs.length){
-      box.innerHTML = d.total_before_freshness_filter > 0
-        ? `<p class="hint">${d.total_before_freshness_filter} match(es) found but none inside your freshness window — widen it, or search again in a while. Fresh postings appear all day.</p>`
-        : '<p class="hint">No matches — try a broader title.</p>';
+      if (d.total_before_experience_filter > 0 && $("jobentry").checked){
+        box.innerHTML = `<p class="hint">${d.total_before_experience_filter} match(es) in this window, but all read as Senior/Staff/Principal — uncheck "Entry/mid-level only" to see them.</p>`;
+      } else if (d.total_before_freshness_filter > 0){
+        box.innerHTML = `<p class="hint">${d.total_before_freshness_filter} match(es) found but none inside your freshness window — widen it, or search again in a while. Fresh postings appear all day.</p>`;
+      } else {
+        box.innerHTML = '<p class="hint">No matches — try a broader title.</p>';
+      }
     }
     for (const j of d.jobs){
       const el = document.createElement("div");
@@ -423,8 +428,14 @@ $("jobsearch").onclick = async () => {
       const age = j.age_minutes == null ? "" :
         j.age_minutes < 90 ? ` · <span style="color:var(--good);font-weight:700">${j.age_minutes}m ago</span>` :
         j.age_minutes < 2880 ? ` · ${Math.round(j.age_minutes/60)}h ago` : ` · ${Math.round(j.age_minutes/1440)}d ago`;
+      const gen = j.genuineness || {};
+      const genColor = gen.score >= 70 ? "var(--good)" : gen.score >= 40 ? "var(--warn)" : "var(--bad)";
+      const expLabel = {senior: "Senior", entry_mid: "Entry/Mid", unclear: "Level unclear"}[(j.experience || {}).level] || "";
+      el.title = (gen.signals || []).join(" · ");
       el.innerHTML = `<div style="flex:1;min-width:250px"><b>${esc(j.title)}</b> — ${esc(j.company)}<br>
-        <span class="hint">${esc(j.location)}${j.salary ? " · " + esc(j.salary) : ""} · ${esc(j.source)}${age}</span></div>
+        <span class="hint">${esc(j.location)}${j.salary ? " · " + esc(j.salary) : ""} · ${esc(j.source)}${age}
+        · <span style="color:${genColor};font-weight:600" title="${esc((gen.signals||[]).join('; '))}">${esc(gen.label || "")}</span>
+        ${expLabel ? " · " + esc(expLabel) : ""}</span></div>
         <span class="score" title="keyword fit vs your master resume">${j.fit}%</span>
         <a class="btn ghost" style="text-decoration:none" href="${esc(j.url)}" target="_blank">Apply link</a>
         <button class="btn">Tailor</button>`;

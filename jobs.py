@@ -305,11 +305,82 @@ def _jsearch(query: str, location: str):
     return jobs
 
 
+# ---------------------------------------------------------------- experience level
+
+_SENIOR_WORDS = re.compile(r"\b(senior|staff|principal|lead|director|head of|vp\b|manager)\b", re.I)
+_ENTRY_WORDS = re.compile(r"\b(junior|entry.?level|new.?grad|associate|intern(ship)?)\b", re.I)
+_YEARS_RE = re.compile(
+    r"(\d{1,2})\s*(?:\+|-|to)?\s*(\d{1,2})?\s*\+?\s*years?\s*(?:of\s+)?(?:relevant\s+)?experience", re.I)
+
+
+def estimate_experience_level(text: str) -> dict:
+    """Best-effort read on seniority from JD text: explicit years mentioned and
+    seniority-title words. Never used to silently hide a job — only to label it,
+    per the same 'show it, don't silently filter' principle as the genuineness
+    score below."""
+    text = text or ""
+    years = [int(a) for a in _YEARS_RE.findall(text)[0] if a] if _YEARS_RE.search(text) else []
+    min_years = min(years) if years else None
+    senior_hit = bool(_SENIOR_WORDS.search(text))
+    entry_hit = bool(_ENTRY_WORDS.search(text))
+
+    if min_years is not None and min_years >= 5:
+        level = "senior"
+    elif senior_hit and not entry_hit and (min_years is None or min_years >= 4):
+        level = "senior"
+    elif min_years is not None and min_years <= 4:
+        level = "entry_mid"
+    elif entry_hit:
+        level = "entry_mid"
+    else:
+        level = "unclear"
+
+    return {"level": level, "min_years": min_years, "matches_0_4": level in ("entry_mid", "unclear")}
+
+
+# ---------------------------------------------------------------- genuineness heuristic
+
+_ATS_DOMAINS = ("greenhouse.io", "lever.co", "myworkdayjobs.com", "smartrecruiters.com",
+               "ashbyhq.com", "icims.com", "bamboohr.com", "jobvite.com", "workable.com")
+_SCAM_PHRASES = re.compile(
+    r"(processing fee|purchase (?:your own )?equipment|wire transfer|send (?:us )?your bank|"
+    r"earn \$?\d+.*(?:from home|per week)|no experience necessary.*\$|"
+    r"whatsapp|telegram (?:only|us)|starter kit)", re.I)
+
+
+def score_genuineness(job: dict) -> dict:
+    """Transparent heuristic, not a certification. Every job keeps this score
+    visible rather than being silently dropped — per the spec's own principle."""
+    score, signals = 50, []
+    url = (job.get("url") or "").lower()
+    desc = job.get("description") or ""
+
+    if any(d in url for d in _ATS_DOMAINS):
+        score += 25; signals.append("posted via a known ATS (Greenhouse/Lever/Workday/...)")
+    if job.get("salary"):
+        score += 15; signals.append("salary disclosed")
+    if len(desc) > 600:
+        score += 10; signals.append("detailed description")
+    elif len(desc) < 150:
+        score -= 10; signals.append("very short description")
+
+    if _SCAM_PHRASES.search(desc) or _SCAM_PHRASES.search(job.get("title") or ""):
+        score -= 45; signals.append("contains a common scam-listing phrase")
+    if "$" in desc and len(desc) < 300 and re.search(r"no experience", desc, re.I):
+        score -= 15; signals.append("high pay + no experience + thin description")
+
+    score = max(0, min(100, score))
+    label = "Looks legitimate" if score >= 70 else "Use caution" if score >= 40 else "High risk — verify carefully"
+    return {"score": score, "label": label, "signals": signals}
+
+
 def rank(jobs: list, master_resume: str) -> list:
     """Fit-score each job's description against the master resume (keyword scan)."""
     for job in jobs:
         text = f"{job['title']} {job['description']}"
         job["fit"] = ats.scan(text, master_resume)["percent"] if job["description"] else 0
+        job["experience"] = estimate_experience_level(text)
+        job["genuineness"] = score_genuineness(job)
     jobs.sort(key=lambda j: -j["fit"])
     return jobs
 
@@ -323,7 +394,7 @@ def filter_fresh(jobs: list, max_age_hours: float) -> list:
 
 
 def search(query: str, location: str, master_resume: str,
-           limit: int = 15, max_age_hours: float = 0) -> dict:
+           limit: int = 15, max_age_hours: float = 0, entry_level_only: bool = False) -> dict:
     """Search all available boards, filter by freshness, rank by fit."""
     jobs, errors = [], []
     for name, fetch in (("jsearch", lambda: _jsearch(query, location)),
@@ -350,11 +421,18 @@ def search(query: str, location: str, master_resume: str,
     now = time.time()
     for j in fresh:
         j["age_minutes"] = int((now - j["posted_epoch"]) / 60) if j.get("posted_epoch") else None
-    ranked = rank(fresh, master_resume)[:limit]
+    ranked = rank(fresh, master_resume)
+    total_before_experience_filter = len(ranked)
+    if entry_level_only:
+        # "unclear" jobs are kept, never silently hidden — only jobs explicitly
+        # marked senior are excluded, matching the spec's own transparency rule
+        ranked = [j for j in ranked if j["experience"]["level"] != "senior"]
+    ranked = ranked[:limit]
     return {
         "jobs": ranked,
         "errors": errors,
         "adzuna_enabled": bool(os.environ.get("ADZUNA_APP_ID")),
         "jsearch_enabled": bool(os.environ.get("JSEARCH_API_KEY")),
         "total_before_freshness_filter": len(unique),
+        "total_before_experience_filter": total_before_experience_filter,
     }

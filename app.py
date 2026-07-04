@@ -213,6 +213,7 @@ class JobSearchRequest(BaseModel):
     query: str
     location: str = ""
     max_age_hours: float = 0  # 0 = any age; 1 = posted within the last hour
+    entry_level_only: bool = False  # exclude jobs explicitly reading as Senior/Staff/Principal+
 
 
 class CoverRequest(BaseModel):
@@ -238,7 +239,8 @@ def find_jobs(body: JobSearchRequest, request: Request):
     master = mf.read_text(encoding="utf-8")
     try:
         return jobs_mod.search(query, body.location.strip(), master,
-                               max_age_hours=max(0.0, min(body.max_age_hours, 168.0)))
+                               max_age_hours=max(0.0, min(body.max_age_hours, 168.0)),
+                               entry_level_only=body.entry_level_only)
     except Exception as exc:
         raise HTTPException(502, f"Job search failed: {exc}") from exc
 

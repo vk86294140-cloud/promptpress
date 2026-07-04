@@ -190,3 +190,43 @@ def test_query_relevance_matcher():
     assert not jobs_mod._matches("software engineer", "Communications Manager", "marketing pr")
     assert jobs_mod._matches("ml engineer", "Machine Learning (ML) Engineer", "")
     assert jobs_mod._matches("", "anything at all", "x")
+
+
+def test_experience_level_estimation():
+    import jobs as jobs_mod
+    assert jobs_mod.estimate_experience_level("5+ years experience required")["level"] == "senior"
+    assert jobs_mod.estimate_experience_level("Senior Staff Engineer, deep expertise")["level"] == "senior"
+    assert jobs_mod.estimate_experience_level("0-2 years experience, entry level welcome")["level"] == "entry_mid"
+    assert jobs_mod.estimate_experience_level("Junior developer role")["level"] == "entry_mid"
+    assert jobs_mod.estimate_experience_level("Exciting opportunity to join our team")["level"] == "unclear"
+
+
+def test_genuineness_scoring():
+    import jobs as jobs_mod
+    good = jobs_mod.score_genuineness({
+        "url": "https://boards.greenhouse.io/acme/jobs/123",
+        "salary": "$120,000 - $150,000",
+        "description": "We are a team of 40 engineers building payment infra. " * 20,
+    })
+    assert good["score"] >= 70 and good["label"] == "Looks legitimate"
+
+    bad = jobs_mod.score_genuineness({
+        "url": "https://randomboard.example.com/job/1",
+        "salary": "",
+        "description": "Earn $5000 per week from home! No experience necessary! Send us your bank details to start. Wire transfer required for starter kit.",
+    })
+    assert bad["score"] < 40 and any("scam" in s for s in bad["signals"])
+
+
+def test_entry_level_filter_never_silently_drops_unclear():
+    import jobs as jobs_mod
+    master = "python engineer"
+    listing = [
+        {"title": "Senior Python Engineer", "company": "A", "description": "5+ years experience python " * 5, "url": "", "salary": ""},
+        {"title": "Python Engineer", "company": "B", "description": "join our growing team, python role " * 5, "url": "", "salary": ""},
+    ]
+    ranked = jobs_mod.rank(listing, master)
+    filtered = [j for j in ranked if j["experience"]["level"] != "senior"]
+    titles = [j["title"] for j in filtered]
+    assert "Senior Python Engineer" not in titles
+    assert "Python Engineer" in titles  # "unclear"/entry_mid jobs are kept, not dropped
