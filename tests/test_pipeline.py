@@ -148,6 +148,24 @@ def test_delete_my_data_endpoint(tmp_path, monkeypatch):
     assert client.delete("/api/me", headers=headers).status_code == 200
 
 
+def test_rate_limit_is_per_user_and_names_the_fix(monkeypatch):
+    import app as app_mod
+    from fastapi import HTTPException
+    monkeypatch.setattr(app_mod, "RATE_LIMIT_PER_HOUR", 2)
+    monkeypatch.setattr(app_mod, "_llm_calls", {})
+    app_mod._check_rate("alice")
+    app_mod._check_rate("alice")
+    try:
+        app_mod._check_rate("alice")
+        assert False, "third call should have been limited"
+    except HTTPException as exc:
+        assert exc.status_code == 429 and "RESUME_RATE_LIMIT" in exc.detail
+    app_mod._check_rate("bob")  # a different user is unaffected
+    monkeypatch.setattr(app_mod, "RATE_LIMIT_PER_HOUR", 0)
+    for _ in range(5):
+        app_mod._check_rate("alice")  # 0 disables the limit entirely
+
+
 def test_nvidia_provider_detection(monkeypatch):
     import llm
     monkeypatch.setenv("RESUME_PROVIDER", "")

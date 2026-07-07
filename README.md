@@ -5,6 +5,10 @@ in a plain human voice, scored by an AI recruiter, and revised until skills /
 experience / industry / overall match are all **≥ 85%** (or the honest ceiling is
 reached — it never invents experience to force a score).
 
+**New here, or hosting this for friends? Read the [Owner's Handbook](HANDBOOK.md)** —
+plain-language guide to using the app, hosting it free for any number of people,
+and keeping it running (updates, rollback, troubleshooting).
+
 ```
 job description ─► writer (senior-recruiter prompt) ─► recruiter/ATS scorer ─► <85%? revise (max 2x) ─► one-page resume + scores
 ```
@@ -201,7 +205,9 @@ resume, own history — nobody sees anyone else's data) and the access key once.
 Both are remembered by their browser.
 
 Security model (right-sized for a private 10-user app): one shared access key on
-every API route, per-user data isolation, filename sanitization on all paths, no
+every API route, per-user data isolation, a per-user hourly rate limit on
+AI endpoints (RESUME_RATE_LIMIT, default 30/hour) so nobody can drain the
+shared LLM quota, filename sanitization on all paths, no
 accounts/emails stored, HTTPS provided by Render. Don't post the URL publicly —
 anyone with URL + key can use your LLM quota.
 
@@ -288,6 +294,7 @@ offline in demo mode.
 
 ## Files
 
+- `HANDBOOK.md` — owner's guide: using, hosting, and keeping the app running
 - `start.bat` / `start.sh` — double-click launcher (update, install, load `.env`, open browser)
 - `.env.example` — copy to `.env` and fill in your keys (gitignored, stays local)
 - `app.py` — FastAPI server (multi-user workspaces, auth, all endpoints)

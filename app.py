@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-APP_VERSION = "19"
+APP_VERSION = "20"
 
 
 def _load_env():
@@ -61,6 +61,28 @@ def _check_auth(request):
 def _user_slug(request) -> str:
     raw = (request.headers.get("x-user") or "default").lower()
     return re.sub(r"[^a-z0-9-]", "", raw)[:32] or "default"
+
+
+# Per-user cap on LLM-spending endpoints, so one person sharing the app can't
+# accidentally burn the whole free-tier quota (or your Anthropic credit) in a
+# loop. In-memory is right for this single-process app; the count resets on
+# restart, which errs on the generous side.
+RATE_LIMIT_PER_HOUR = int(os.environ.get("RESUME_RATE_LIMIT", "30"))  # 0 = off
+_llm_calls: dict = {}  # user -> [epoch, epoch, ...] within the last hour
+
+
+def _check_rate(user: str):
+    if not RATE_LIMIT_PER_HOUR:
+        return
+    import time as _time
+    now = _time.time()
+    recent = [t for t in _llm_calls.get(user, []) if now - t < 3600]
+    if len(recent) >= RATE_LIMIT_PER_HOUR:
+        wait_min = int((3600 - (now - recent[0])) / 60) + 1
+        raise HTTPException(429, f"Rate limit: {RATE_LIMIT_PER_HOUR} AI runs per hour per person. "
+                                 f"Try again in ~{wait_min} min, or raise RESUME_RATE_LIMIT on the server.")
+    recent.append(now)
+    _llm_calls[user] = recent
 
 
 def _master_file(user: str) -> Path:
@@ -173,6 +195,7 @@ def tailor(body: TailorRequest, request: Request):
     _check_auth(request)
     _require_api_key()
     user = _user_slug(request)
+    _check_rate(user)
     mf = _master_file(user)
     jd = body.job_description.strip()
     if len(jd) < 80:
@@ -224,6 +247,7 @@ def check(body: CheckRequest, request: Request):
     """Score any existing resume against a JD and return section improvements."""
     _check_auth(request)
     _require_api_key()
+    _check_rate(_user_slug(request))
     jd = body.job_description.strip()
     resume = body.resume_text.strip()
     if len(jd) < 80:
@@ -281,6 +305,7 @@ def cover(body: CoverRequest, request: Request):
     """Generate a matching cover letter from the tailored resume + JD."""
     _check_auth(request)
     _require_api_key()
+    _check_rate(_user_slug(request))
     jd = body.job_description.strip()
     resume = body.resume_markdown.strip()
     if len(jd) < 80 or len(resume) < 120:
