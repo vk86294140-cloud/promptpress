@@ -2,7 +2,8 @@
 OpenAI-compatible custom endpoint (ZenMux, OpenRouter, Ollama, ...), or Demo.
 
 Provider chain (first configured key wins as primary; the rest are automatic
-fallbacks tried ONLY when the primary times out, never on other errors):
+fallbacks tried ONLY when the primary times out or hits its free-tier rate
+limit, never on other errors):
 RESUME_PROVIDER override (forces exactly that one provider, no fallback) >
 RESUME_BASE_URL (custom) > GROQ_API_KEY > NVIDIA_API_KEY > GEMINI_API_KEY >
 ANTHROPIC_API_KEY > OPENAI_API_KEY > demo.
@@ -108,10 +109,10 @@ LLM_MAX_RETRIES = int(os.environ.get("RESUME_LLM_MAX_RETRIES", "0"))
 
 
 class ProviderTimeout(RuntimeError):
-    """Raised when one provider in the chain times out — the only error type
-    complete() will silently fall through to the next provider for. Any other
-    exception (bad config, refusal, etc.) propagates immediately, since trying
-    a different provider wouldn't fix it."""
+    """Raised when one provider in the chain times out — complete() falls
+    through to the next provider for this (and its rate-limit subclass below).
+    Any other exception (bad config, refusal, etc.) propagates immediately,
+    since trying a different provider wouldn't fix it."""
 
     def __init__(self, provider: str, exc: Exception):
         self.provider = provider
@@ -121,10 +122,25 @@ class ProviderTimeout(RuntimeError):
         )
 
 
+class ProviderRateLimited(ProviderTimeout):
+    """A 429 from a provider: its free-tier quota (tokens/requests per minute)
+    is momentarily exhausted. Exactly as transient as a timeout and just as
+    fixable by trying the next provider in the chain, so it inherits the
+    fall-through behavior instead of killing the whole run."""
+
+    def __init__(self, provider: str, exc: Exception):  # noqa: super-init-not-called deliberately
+        self.provider = provider
+        RuntimeError.__init__(
+            self,
+            f"the {provider} provider hit its free-tier rate limit "
+            f"(tokens/requests per minute) [{exc.__class__.__name__}]"
+        )
+
+
 def complete(system: str, user: str, max_tokens: int = 4096, kind: str = "text", temperature: float = None) -> str:
     """One LLM call, with automatic fallback across the provider chain — but
-    ONLY on a timeout. `kind` is only used by the demo provider to fake
-    sensible output."""
+    ONLY on a timeout or free-tier rate limit. `kind` is only used by the demo
+    provider to fake sensible output."""
     chain = provider_chain()
     failures = []
     for provider in chain:
@@ -137,14 +153,14 @@ def complete(system: str, user: str, max_tokens: int = 4096, kind: str = "text",
             continue
     if len(chain) == 1:
         raise RuntimeError(
-            f"The AI provider failed: {failures[0]}. Nothing was faked. Try again, "
-            f"or add a second free key (GROQ_API_KEY/NVIDIA_API_KEY/GEMINI_API_KEY) "
-            f"as a fallback."
+            f"The AI provider failed: {failures[0]}. Nothing was faked. Try again "
+            f"in a minute, or add a second free key (GROQ_API_KEY/NVIDIA_API_KEY/"
+            f"GEMINI_API_KEY) as a fallback."
         )
     raise RuntimeError(
-        f"All {len(chain)} configured providers timed out — " + "; ".join(failures) +
-        ". Nothing was faked. This usually means every free tier you have is "
-        "overloaded right now; try again shortly."
+        f"All {len(chain)} configured providers are unavailable — " + "; ".join(failures) +
+        ". Nothing was faked. Every free tier you have is timed out or "
+        "rate-limited right now; try again in a minute."
     )
 
 
@@ -187,6 +203,8 @@ def _anthropic(system: str, user: str, max_tokens: int, model: str) -> str:
             system=system,
             messages=[{"role": "user", "content": user}],
         )
+    except anthropic_sdk.RateLimitError as exc:
+        raise ProviderRateLimited("anthropic", exc) from exc
     except (anthropic_sdk.APITimeoutError, anthropic_sdk.APIConnectionError) as exc:
         raise ProviderTimeout("anthropic", exc) from exc
     if response.stop_reason == "refusal":
@@ -215,6 +233,8 @@ def _openai_compatible(system: str, user: str, max_tokens: int, model: str, prov
             ],
             **kwargs,
         )
+    except openai_sdk.RateLimitError as exc:
+        raise ProviderRateLimited(provider, exc) from exc
     except (openai_sdk.APITimeoutError, openai_sdk.APIConnectionError) as exc:
         raise ProviderTimeout(provider, exc) from exc
     return response.choices[0].message.content or ""

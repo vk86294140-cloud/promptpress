@@ -394,6 +394,31 @@ def test_automatic_fallback_on_timeout_only(monkeypatch):
     assert llm.last_served_by() == ("nvidia", llm.model_for("nvidia"))
 
 
+def test_rate_limit_429_triggers_fallback_like_a_timeout(monkeypatch):
+    """The real-world failure this guards: Groq free tier returns 429
+    (tokens-per-minute exhausted) mid-run. That's as transient as a timeout,
+    so the chain must fall through to the next provider instead of failing
+    the whole tailor run with 'Generation failed'."""
+    import llm
+    monkeypatch.delenv("RESUME_PROVIDER", raising=False)
+    monkeypatch.delenv("RESUME_BASE_URL", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-x")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-x")
+
+    def fake_dispatch(provider, system, user, max_tokens, temperature, kind):
+        if provider == "groq":
+            raise llm.ProviderRateLimited("groq", Exception("429 tokens per minute"))
+        return f"served by {provider}"
+
+    monkeypatch.setattr(llm, "_dispatch", fake_dispatch)
+    assert llm.complete("sys", "user") == "served by nvidia"
+    assert llm.last_served_by() == ("nvidia", llm.model_for("nvidia"))
+    # and the message names the cause when nothing is left to fall back to
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="rate limit"):
+        llm.complete("sys", "user")
+
+
 def test_non_timeout_errors_do_not_trigger_fallback(monkeypatch):
     """A real error (e.g. a refusal) must surface immediately — silently
     retrying on a different provider wouldn't fix it and would hide the
