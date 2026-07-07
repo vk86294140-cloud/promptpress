@@ -385,6 +385,7 @@ $("docheck").onclick = async () => {
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || "Check failed");
     paintScores(d.scores);
+    paintChangeLog(null);  // provenance belongs to a tailor run, not this pasted resume
     msg.className = d.scores.overall >= 85 ? "ok" : "err";
     msg.textContent = d.scores.overall >= 85
       ? `This resume scores ${d.scores.overall}% — interview pile.`
@@ -440,6 +441,7 @@ async function loadHistory(){
       lastMarkdown = full.resume_markdown; lastName = it.name;
       $("sheet").innerHTML = render(full.resume_markdown);
       paintScores(full.scores);
+      paintChangeLog(full.change_log);  // saved with the run; null-safe for older history
       document.querySelector('nav button[data-tab="tailor"]').click();
     };
     box.appendChild(el);

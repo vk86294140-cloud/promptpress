@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-APP_VERSION = "20"
+APP_VERSION = "21"
 
 
 def _load_env():

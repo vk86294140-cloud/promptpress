@@ -20,7 +20,22 @@ STYLE_RULES = f"""WRITING RULES (follow every one):
   does not have, emphasize the closest real experience instead. Do not claim it.
 - Mirror the job description's exact wording for skills and duties wherever the
   master resume genuinely supports it (e.g. if the JD says "CI/CD" and the resume
-  says "Jenkins pipelines", write "CI/CD (Jenkins)").
+  says "Jenkins pipelines", write "CI/CD (Jenkins)"). Prefer the JD's full
+  multi-word phrasing over a shorter synonym: if the JD says "REST based web
+  services" and the candidate built REST APIs, write "REST based web services"
+  in the relevant bullet, not just "REST APIs" — ATS matching is literal.
+- NAME THE REAL INDUSTRY: when the JD emphasizes an industry or domain
+  (finance, healthcare, retail...), state the true, well-known industry of the
+  candidate's real employers and projects so the match is visible ("Capital
+  One (financial services)", a credit-risk model described as financial-risk
+  work for a banking JD). An employer's actual industry is a fact, not an
+  embellishment — surfacing it in the summary and bullets is required, and
+  inventing industry experience the employers/projects don't have is still
+  forbidden.
+- Order the Skills groups AND the items inside each group by this JD's
+  priorities: the first group is the JD's core stack, and the JD's must-have
+  items lead their groups. A recruiter scanning five seconds should hit the
+  JD's top requirements first, not an alphabetical list.
 - CONNECT THE DOTS: you may include technologies, umbrella terms, and synonyms
   that the master resume's real work directly implies, even if not spelled out
   (React work implies JavaScript/HTML/CSS; PyTorch implies deep learning; AWS
@@ -120,7 +135,21 @@ Score each dimension 0-100:
   how a real recruiter and a real ATS keyword-in-context check both read a
   resume, so do not give full credit to Skills-list-only keywords.
 - experience_match: seniority, years, scope, and type of work
-- industry_match: domain/industry relevance of the companies and projects
+- industry_match: domain/industry relevance of the companies and projects.
+  Credit the TRUE industry of named employers and projects even when the
+  resume doesn't spell it out: Capital One / JPMorgan / a credit-risk model
+  ARE financial services for a bank's JD, a hospital system IS healthcare.
+  Never score industry low when the candidate's actual employer operates in
+  the JD's industry — recognizing a household-name employer's sector is part
+  of reading a resume.
+
+SYNONYMS COUNT AS COVERAGE everywhere: judge by meaning, not exact strings.
+"Built a REST API backend" covers "REST based web services"; "Jenkins
+pipelines" covers "CI/CD"; "Git" covers "version control". A term goes in
+missing_keywords ONLY when nothing in the resume expresses that capability —
+never because the resume used a synonym for it. (You may still suggest, as an
+improvement, echoing the JD's exact phrasing for stronger literal-ATS
+matching.)
 
 Return ONLY a JSON object, no markdown fences, no commentary:
 {"job_title": "...", "company": "...", "skills_match": 0, "experience_match": 0,
