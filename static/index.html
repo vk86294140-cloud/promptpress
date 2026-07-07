@@ -99,6 +99,7 @@
           <div class="meter" id="atsrow" style="display:none"><span>ATS keywords</span><div class="bar"><i id="b-ats"></i></div><span id="v-ats"></span></div>
           <div class="missing" id="missing"></div>
           <div class="missing" id="improve"></div>
+          <div class="missing" id="changelog"></div>
           <div class="row">
             <button class="btn" id="dlpdf">Download PDF</button>
             <button class="btn" id="dldocx">Download DOCX</button>
@@ -128,6 +129,10 @@
     <div class="row">
       <button class="btn" id="savemaster">Save master resume</button>
       <span class="hint" id="mastermsg"></span>
+    </div>
+    <div class="row" style="margin-top:24px">
+      <button class="btn ghost" id="deletedata" style="color:var(--bad);border-color:var(--bad)">Delete all my data</button>
+      <span class="hint">Erases your master resume, history, and this browser's backup from this app. Cannot be undone.</span>
     </div>
   </section>
 
@@ -253,6 +258,19 @@ $("savemaster").onclick = async () => {
   loadStatus();
 };
 
+$("deletedata").onclick = async () => {
+  if (!confirm("Delete your master resume, all generated history, and this browser's backup? This cannot be undone.")) return;
+  const r = await api("/api/me", {method:"DELETE"});
+  if (r.ok){
+    localStorage.removeItem(masterBackupKey());
+    $("master").value = "";
+    $("mastermsg").textContent = "All your data was deleted from this app.";
+    loadStatus();
+  } else {
+    $("mastermsg").textContent = "Delete failed — try again.";
+  }
+};
+
 // ---- markdown -> resume HTML ----
 function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function inline(s){ return esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>"); }
@@ -313,6 +331,22 @@ function paintScores(sc){
     ? `<b>Checker suggestions:</b><br>` + imps.map(i => `&bull; <b>${esc(i.section || "general")}:</b> ${esc(i.fix || String(i))}`).join("<br>") : "";
 }
 
+// Keyword provenance: JD terms the resume uses, where they landed, and whether
+// each traces verbatim to the master resume or was introduced as JD vocabulary
+// (legitimate bridging, but worth a human glance — those are listed first).
+function paintChangeLog(log){
+  const el = $("changelog");
+  if (!log || !log.length){ el.innerHTML = ""; return; }
+  const flagged = log.filter(e => e.verify), fromMaster = log.filter(e => !e.verify);
+  let html = "<b>Keyword provenance (change log):</b><br>";
+  if (flagged.length)
+    html += `<span style="color:var(--warn)">Added as JD vocabulary — double-check these reflect your real work:</span><br>`
+      + flagged.map(e => `&bull; <b>${esc(e.keyword)}</b> → ${e.sections.map(esc).join(", ")}`).join("<br>") + "<br>";
+  if (fromMaster.length)
+    html += `<span class="hint">Straight from your master resume: ${fromMaster.map(e => esc(e.keyword)).join(", ")}</span>`;
+  el.innerHTML = html;
+}
+
 // ---- tailor ----
 async function tailor(){
   const jd = $("jd").value.trim();
@@ -329,6 +363,7 @@ async function tailor(){
     lastMarkdown = d.resume_markdown; lastName = d.saved_as || "resume";
     $("sheet").innerHTML = render(d.resume_markdown);
     paintScores(d.scores);
+    paintChangeLog(d.change_log);
     $("mkcover").style.display = "inline-block";
     $("coverpanel").style.display = "none";
     msg.className = d.target_met ? "ok" : "err";

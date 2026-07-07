@@ -109,8 +109,43 @@ def test_ats_scan():
 def test_tailor_includes_ats_scan_and_demo_letter():
     result = pipeline.tailor("Python AWS Docker engineer " * 10, "Python AWS master resume")
     assert "ats_keyword_scan" in result["scores"]
+    assert isinstance(result["change_log"], list)
     import llm
     assert "Dear Hiring Manager" in llm.complete("s", "u", kind="letter")
+
+
+def test_change_log_traces_keyword_provenance():
+    import ats
+    jd = "Kubernetes and Python engineer. Kubernetes required. Python required."
+    master = "Built services in Python at Acme."
+    tailored = (
+        "# Jane Doe\njane@x.com\n\nEngineer.\n\n## Skills\n"
+        "**Tools:** Python, Kubernetes\n\n## Experience\n"
+        "**Engineer — Acme** | 2022 – Now\n- Built Python services on Kubernetes\n"
+    )
+    log = ats.change_log(jd, master, tailored)
+    by_kw = {e["keyword"]: e for e in log}
+    # python exists verbatim in the master resume: traced, not flagged
+    assert by_kw["python"]["source"] == "master resume" and not by_kw["python"]["verify"]
+    # kubernetes was introduced by tailoring: flagged for a human check
+    assert by_kw["kubernetes"]["source"] == "JD-aligned phrasing" and by_kw["kubernetes"]["verify"]
+    # flagged entries sort first, and section placement is reported
+    assert log[0]["verify"] and "skills" in by_kw["kubernetes"]["sections"]
+
+
+def test_delete_my_data_endpoint(tmp_path, monkeypatch):
+    import app as app_mod
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(app_mod, "DATA_DIR", tmp_path)
+    client = TestClient(app_mod.app)
+    headers = {"X-User": "testuser"}
+    client.post("/api/master", json={"text": "my resume"}, headers=headers)
+    assert (tmp_path / "users" / "testuser" / "master_resume.txt").exists()
+    r = client.delete("/api/me", headers=headers)
+    assert r.status_code == 200 and r.json()["deleted"]
+    assert not (tmp_path / "users" / "testuser").exists()
+    # deleting again is a harmless no-op, not an error
+    assert client.delete("/api/me", headers=headers).status_code == 200
 
 
 def test_nvidia_provider_detection(monkeypatch):

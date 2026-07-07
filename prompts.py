@@ -55,13 +55,16 @@ STYLE_RULES = f"""WRITING RULES (follow every one):
 - The summary is 1-2 plain sentences stating what the person does and the one or
   two things that most match this job. No objectives, no "seeking".
 - Write like a competent person in a hurry, not a marketing brochure.
-- NEVER include a street address in the header, and never write "New Jersey"
-  or "NJ" anywhere. The contact line is: email | phone | LinkedIn URL |
-  GitHub URL (plus a portfolio URL if the master resume has one). Write
-  LinkedIn/GitHub as full usable URLs (e.g. linkedin.com/in/name,
+- NEVER include a street address in the header. The contact line is: email |
+  phone | LinkedIn URL (plus GitHub/portfolio/license numbers if the master
+  resume has them). Write links as full usable URLs (e.g. linkedin.com/in/name,
   github.com/name). Add a location ONLY if the job description emphasizes
-  onsite/hybrid work or local candidates — in that case use exactly
-  "New York City, NY" as the first item of the contact line.
+  onsite/hybrid work or local candidates — in that case use the city+state
+  the master resume itself gives (a "Location:"/"Based in:" note or the city
+  named in its contact info), as the first item of the contact line, city and
+  state only. If the master resume marks a location as preferred over where
+  they currently live (e.g. "prefer NYC roles"), use the preferred one. Never
+  invent or guess a location the master resume doesn't state.
 - Use everything in the master resume that is relevant to this job — projects,
   certifications, publications, internships — not just the job history. Trim
   only what does not help for this specific role."""
@@ -70,7 +73,7 @@ OUTPUT_SKELETON = """OUTPUT FORMAT — return ONLY the resume as Markdown in exa
 no commentary before or after:
 
 # {Full Name}
-{email} | {phone} | {linkedin.com/in/...} | {github.com/...}
+{email} | {phone} | {linkedin.com/in/...} | {github.com/... / portfolio / license #, only if in the master resume}
 
 {1-2 sentence summary}
 

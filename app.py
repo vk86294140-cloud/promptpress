@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-APP_VERSION = "18"
+APP_VERSION = "19"
 
 
 def _load_env():
@@ -138,6 +138,34 @@ def save_master(body: MasterResume, request: Request):
     mf.parent.mkdir(parents=True, exist_ok=True)
     mf.write_text(body.text, encoding="utf-8")
     return {"saved": True, "chars": len(body.text)}
+
+
+@app.delete("/api/me")
+def delete_my_data(request: Request):
+    """Erase everything stored for the calling workspace: master resume and
+    all generated outputs. Retention policy is simply 'nothing survives this
+    call' — the server keeps no copies, no backups, no logs of resume content.
+    (The browser's own localStorage backup is cleared by the UI on the same
+    click; other browsers that used the same workspace name keep theirs until
+    they next sync.)"""
+    _check_auth(request)
+    user = _user_slug(request)
+    user_dir = DATA_DIR / "users" / user
+    removed = 0
+    if user_dir.exists():
+        for path in sorted(user_dir.rglob("*"), reverse=True):  # files before their dirs
+            if path.is_file():
+                path.unlink()
+                removed += 1
+            else:
+                path.rmdir()
+        user_dir.rmdir()
+    if user == "default":  # pre-multiuser installs stored the resume at the top level
+        legacy = DATA_DIR / "master_resume.txt"
+        if legacy.exists():
+            legacy.unlink()
+            removed += 1
+    return {"deleted": True, "files_removed": removed}
 
 
 @app.post("/api/tailor")

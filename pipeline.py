@@ -118,6 +118,9 @@ def tailor(job_description: str, master_resume: str) -> dict:
         "scores": scores,
         "revisions": revisions,
         "target_met": _meets_target(scores),
+        # keyword provenance: which JD terms the resume uses, where, and
+        # whether each traces to the master resume or needs a human check
+        "change_log": ats.change_log(job_description, master_resume, resume_md),
         # the provider/model that ACTUALLY served the write call — accurate
         # even if the primary timed out and a fallback took over, unlike a
         # static llm.detect_provider()/active_model() read

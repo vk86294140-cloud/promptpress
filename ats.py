@@ -77,3 +77,46 @@ def scan(jd: str, resume_md: str) -> dict:
     missing = [k for k in keywords if k not in resume_low]
     percent = round(100 * len(matched) / len(keywords)) if keywords else 0
     return {"percent": percent, "matched": matched, "missing": missing}
+
+
+def _sections(resume_md: str) -> dict:
+    """Split a tailored resume's markdown into {section_name: text} — the text
+    before the first ## heading is the header/summary."""
+    parts, current, lines = {}, "summary", []
+    for line in resume_md.splitlines():
+        m = re.match(r"##\s+(.+)", line)
+        if m:
+            parts[current] = "\n".join(lines)
+            current, lines = m.group(1).strip().lower(), []
+        else:
+            lines.append(line)
+    parts[current] = "\n".join(lines)
+    return parts
+
+
+def change_log(jd: str, master_resume: str, tailored_md: str) -> list:
+    """Provenance report for every JD keyword the tailored resume uses.
+
+    Deterministic and LLM-free. For each JD keyword found in the tailored
+    resume: which sections it landed in, and whether the exact term also
+    appears in the master resume ("from master resume") or was introduced by
+    the tailoring as JD vocabulary ("JD-aligned phrasing"). The second kind
+    is legitimate bridging (e.g. master says "Jenkins pipelines", JD and
+    tailored resume say "CI/CD") but is exactly what the user should
+    double-check reflects real work — so it's flagged, never hidden."""
+    master_low = (master_resume or "").lower()
+    sections = _sections(tailored_md)
+    log = []
+    for kw in extract_keywords(jd):
+        found_in = [name for name, text in sections.items() if kw in text.lower()]
+        if not found_in:
+            continue
+        log.append({
+            "keyword": kw,
+            "sections": found_in,
+            "source": "master resume" if kw in master_low else "JD-aligned phrasing",
+            "verify": kw not in master_low,
+        })
+    # flagged terms first — they're the ones worth a human look
+    log.sort(key=lambda e: (not e["verify"], e["keyword"]))
+    return log

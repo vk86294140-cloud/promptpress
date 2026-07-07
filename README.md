@@ -228,11 +228,63 @@ PDF/DOCX for anything you want to keep. If that matters more than the $0
 price, Render's paid Starter plan (~$7/mo) adds a real persistent disk — just
 add a `disk:` block back to `render.yaml` at that point.
 
-## Tests
+## Works for any profession, not just tech
+
+The pipeline is domain-agnostic: it extracts whatever keywords, duties, and
+qualifications the pasted JD actually contains and maps them to whatever the
+master resume actually says — construction management, nursing, finance, or
+software all work the same way. Nothing about location, links, or skills is
+hardcoded to one person: the contact line only includes GitHub/portfolio/
+license numbers when the master resume has them, and any location shown comes
+from the master resume itself, never a guess.
+
+## Your data, deletion, and retention
+
+- Everything stays in your workspace: your master resume and generated
+  history are keyed to your workspace name and invisible to other users.
+- **Delete all my data** (My Resume tab) erases your master resume, all
+  generated outputs, and this browser's local backup in one click. Retention
+  policy: nothing survives deletion — the server keeps no copies, backups,
+  or logs of resume content.
+- API keys and the shared app password live in env vars (`.env` locally,
+  Render env vars when hosted) and are never committed or stored per-user.
+
+## Runbook (hosted on Render)
+
+**Deploy an update:** push to the connected branch — Render auto-builds and
+swaps traffic only after the new container is healthy. Watch the deploy log
+in the Render dashboard.
+
+**Roll back:** Render dashboard → your service → *Events* → pick the last
+good deploy → **Rollback to this deploy**. Takes effect in ~1 minute. (Or
+`git revert` the bad commit and push.)
+
+**App looks stale / wrong version:** check `/api/status` — it reports the
+running `APP_VERSION`. If it doesn't match the latest code, the deploy
+didn't finish; check Render's deploy log.
+
+**LLM errors ("timed out", "no API key"):** the error message names the
+provider and the env var to fix. Set/rotate the key in Render → Environment,
+then redeploy. The app hard-fails loudly rather than silently returning
+fake content — an error means config, not corruption.
+
+**Someone's resume disappeared after a redeploy:** expected on the free tier
+(no persistent disk) — it auto-restores from that person's browser backup the
+next time they open the app. If they used a new browser, they re-paste once.
+
+**Lock out a user:** change `APP_PASSWORD` in Render → Environment and share
+the new key only with the people you want. There are no per-user credentials
+to manage.
+
+## Tests & CI
 
 ```bash
 pip install pytest && pytest tests/ -q     # runs offline in demo mode, no API key needed
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the full suite plus an
+app-import smoke check on every push — no secrets needed, everything runs
+offline in demo mode.
 
 ## Files
 
