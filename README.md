@@ -41,7 +41,7 @@ every update since `start.bat`/`start.sh` never touch it after creating it.
 cd C:\Users\vamsi\Desktop\Job-Automation\resume_app
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt openai
+pip install -r requirements.txt
 
 # Claude (recommended)
 $env:ANTHROPIC_API_KEY = "sk-ant-..."
@@ -95,7 +95,7 @@ below are only for the manual-setup path.
 | 4        | Anthropic | `claude-sonnet-5`             | ~5–15¢          | Best writing — for jobs you really want |
 | 5        | OpenAI    | `gpt-4o`                      | ~5–15¢          | |
 
-Setup (PowerShell — `pip install openai` once for NVIDIA/Groq/OpenAI):
+Setup (PowerShell — `pip install -r requirements.txt` already covers NVIDIA/Groq/OpenAI):
 
 ```powershell
 $env:NVIDIA_API_KEY = "nvapi-your-key"     # free default (build.nvidia.com)
