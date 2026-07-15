@@ -13,16 +13,18 @@ construction time, not import time.
 
 from __future__ import annotations
 
+from typing import Any
+
 from .pipeline import Pipeline
 
 
 class _CompressedMessages:
-    def __init__(self, inner, pipeline: Pipeline, budget: int | None):
+    def __init__(self, inner: Any, pipeline: Pipeline, budget: int | None):
         self._inner = inner
         self._pipeline = pipeline
         self._budget = budget
 
-    def create(self, **kwargs):
+    def create(self, **kwargs: Any) -> Any:
         messages = kwargs.get("messages")
         if messages:
             kwargs["messages"] = [self._compress_message(m) for m in messages]
@@ -31,7 +33,7 @@ class _CompressedMessages:
             kwargs["system"] = self._pipeline.compress(system, budget=self._budget).text
         return self._inner.create(**kwargs)
 
-    def _compress_message(self, msg: dict) -> dict:
+    def _compress_message(self, msg: dict[str, Any]) -> dict[str, Any]:
         content = msg.get("content")
         if isinstance(content, str):
             return {**msg, "content": self._pipeline.compress(content, budget=self._budget).text}
@@ -50,12 +52,17 @@ class _CompressedMessages:
 class CompressedAnthropic:
     """Wraps anthropic.Anthropic; everything except messages.create is proxied."""
 
-    def __init__(self, budget_per_message: int | None = None, max_level: int = 2, **anthropic_kwargs):
-        import anthropic  # optional dependency, imported lazily
+    def __init__(
+        self,
+        budget_per_message: int | None = None,
+        max_level: int = 2,
+        **anthropic_kwargs: Any,
+    ):
+        import anthropic  # type: ignore[import-not-found]  # optional dependency, imported lazily
 
         self._client = anthropic.Anthropic(**anthropic_kwargs)
         pipeline = Pipeline(max_level=max_level)
         self.messages = _CompressedMessages(self._client.messages, pipeline, budget_per_message)
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> Any:
         return getattr(self._client, item)

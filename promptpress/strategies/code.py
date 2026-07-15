@@ -62,7 +62,7 @@ def _strip_trailing_comment(line: str) -> str:
 
 def _strip_generic(src: str) -> str:
     src = _LINE_COMMENT.sub("", src)
-    return "\n".join(l.rstrip() for l in src.splitlines() if l.strip())
+    return "\n".join(line.rstrip() for line in src.splitlines() if line.strip())
 
 
 class CodeStrategy(Strategy):
@@ -70,7 +70,7 @@ class CodeStrategy(Strategy):
     level = 1
 
     def compress(self, text: str) -> str:
-        def repl(m: re.Match) -> str:
+        def repl(m: re.Match[str]) -> str:
             lang, body = m.group(1), m.group(2)
             stripped = _strip_python(body) if lang in ("python", "py") else _strip_generic(body)
             return f"```{lang}\n{stripped}\n```"

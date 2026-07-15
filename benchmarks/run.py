@@ -15,17 +15,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from promptpress import Pipeline  # noqa: E402
 from promptpress.tokens import estimate_tokens  # noqa: E402
 
-PROSE = ("## Incident report\n\n" + (
-    "The deployment to the production environment was really just initiated at "
-    "approximately 14:32 UTC by the on-call engineer. The deployment was actually "
-    "initiated at 14:32 UTC by the engineer who was on call at the time. After the "
-    "rollout reached fifty percent of the fleet, the latency of the checkout service "
-    "began to climb very rapidly, and the p95 latency crossed the alerting threshold. "
-    "The on-call engineer decided to halt the rollout and begin an investigation into "
-    "the root cause of the regression. It was eventually determined that a connection "
-    "pool setting had been changed in the new release without a corresponding change "
-    "to the database server configuration. "
-) * 4)
+PROSE = (
+    "## Incident report\n\n"
+    + (
+        "The deployment to the production environment was really just initiated at "
+        "approximately 14:32 UTC by the on-call engineer. The deployment was actually "
+        "initiated at 14:32 UTC by the engineer who was on call at the time. After the "
+        "rollout reached fifty percent of the fleet, the latency of the checkout service "
+        "began to climb very rapidly, and the p95 latency crossed the alerting threshold. "
+        "The on-call engineer decided to halt the rollout and begin an investigation into "
+        "the root cause of the regression. It was eventually determined that a connection "
+        "pool setting had been changed in the new release without a corresponding change "
+        "to the database server configuration. "
+    )
+    * 4
+)
 
 CODE_HEAVY = (
     "Review this module:\n\n```python\n"

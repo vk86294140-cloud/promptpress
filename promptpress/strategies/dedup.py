@@ -16,14 +16,14 @@ from .base import Strategy
 _WORDS = re.compile(r"[a-z0-9]+")
 
 
-def _shingles(text: str, k: int = 3) -> frozenset:
+def _shingles(text: str, k: int = 3) -> frozenset[str]:
     words = _WORDS.findall(text.lower())
     if len(words) < k:
         return frozenset([" ".join(words)]) if words else frozenset()
-    return frozenset(" ".join(words[i:i + k]) for i in range(len(words) - k + 1))
+    return frozenset(" ".join(words[i : i + k]) for i in range(len(words) - k + 1))
 
 
-def _jaccard(a: frozenset, b: frozenset) -> float:
+def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     if not a or not b:
         return 0.0
     return len(a & b) / len(a | b)
@@ -57,7 +57,7 @@ class DedupStrategy(Strategy):
             blocks.append("\n\n".join(fence_buf))
 
         kept: list[str] = []
-        seen: list[frozenset] = []
+        seen: list[frozenset[str]] = []
         for block in blocks:
             if "```" in block:
                 kept.append(block)  # code blocks are never deduped

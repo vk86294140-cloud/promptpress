@@ -1,8 +1,8 @@
 """promptpress CLI.
 
-    promptpress compress prompt.md --budget 4000 --report
-    promptpress count prompt.md
-    cat prompt.md | promptpress compress - --max-level 2
+promptpress compress prompt.md --budget 4000 --report
+promptpress count prompt.md
+cat prompt.md | promptpress compress - --max-level 2
 """
 
 from __future__ import annotations
@@ -11,9 +11,9 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import __version__
 from .pipeline import compress
 from .tokens import estimate_tokens
-from . import __version__
 
 
 def _read(src: str) -> str:
@@ -30,8 +30,13 @@ def main(argv: list[str] | None = None) -> int:
     c = sub.add_parser("compress", help="compress a file (or - for stdin)")
     c.add_argument("input")
     c.add_argument("--budget", type=int, default=None, help="target token budget")
-    c.add_argument("--max-level", type=int, default=3, choices=range(4),
-                   help="max aggressiveness: 0 lossless .. 3 extractive")
+    c.add_argument(
+        "--max-level",
+        type=int,
+        default=3,
+        choices=range(4),
+        help="max aggressiveness: 0 lossless .. 3 extractive",
+    )
     c.add_argument("-o", "--output", default=None, help="write result here (default stdout)")
     c.add_argument("--report", action="store_true", help="print per-stage savings to stderr")
 

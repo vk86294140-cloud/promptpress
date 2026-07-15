@@ -14,11 +14,27 @@ from ..protect import shield, unshield
 from .base import Strategy
 
 _DROP = {
-    "a", "an", "the",
-    "just", "really", "basically", "actually", "simply", "quite", "very",
-    "rather", "somewhat", "perhaps", "maybe", "certainly", "definitely",
-    "in order", "of course", "as well",
-    "please", "kindly",
+    "a",
+    "an",
+    "the",
+    "just",
+    "really",
+    "basically",
+    "actually",
+    "simply",
+    "quite",
+    "very",
+    "rather",
+    "somewhat",
+    "perhaps",
+    "maybe",
+    "certainly",
+    "definitely",
+    "in order",
+    "of course",
+    "as well",
+    "please",
+    "kindly",
 }
 
 _PHRASES = [

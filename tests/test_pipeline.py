@@ -2,11 +2,12 @@ from promptpress import Pipeline, compress
 from promptpress.tokens import estimate_tokens
 
 LONG = (
-    "## Background\n\n"
-    + "The system was really just designed to handle a very large number of "
-      "requests per second across the entire fleet of servers. " * 8
+    "## Background\n\n" + "The system was really just designed to handle a very large number of "
+    "requests per second across the entire fleet of servers. "
+    * 8
     + "\n\nThe system was really just designed to handle a very large number of "
-      "requests per second across the entire fleet of servers and racks. " * 2
+    "requests per second across the entire fleet of servers and racks. "
+    * 2
     + "\n\n```python\n# setup\nx = 1  # one\n```\n"
 )
 

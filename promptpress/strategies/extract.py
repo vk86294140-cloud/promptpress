@@ -18,7 +18,7 @@ _SENT_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'])")
 _WORDS = re.compile(r"[a-z0-9]+")
 
 
-def _similarity(a: set, b: set) -> float:
+def _similarity(a: set[str], b: set[str]) -> float:
     if not a or not b:
         return 0.0
     overlap = len(a & b)
@@ -33,8 +33,10 @@ def textrank(sentences: list[str], damping: float = 0.85, iters: int = 30) -> li
     if n == 0:
         return []
     word_sets = [set(_WORDS.findall(s.lower())) for s in sentences]
-    sim = [[_similarity(word_sets[i], word_sets[j]) if i != j else 0.0
-            for j in range(n)] for i in range(n)]
+    sim = [
+        [_similarity(word_sets[i], word_sets[j]) if i != j else 0.0 for j in range(n)]
+        for i in range(n)
+    ]
     out_weight = [sum(row) or 1.0 for row in sim]
     scores = [1.0 / n] * n
     for _ in range(iters):
@@ -42,7 +44,7 @@ def textrank(sentences: list[str], damping: float = 0.85, iters: int = 30) -> li
         for i in range(n):
             rank = sum(sim[j][i] / out_weight[j] * scores[j] for j in range(n))
             new.append((1 - damping) / n + damping * rank)
-        delta = sum(abs(a - b) for a, b in zip(new, scores))
+        delta = sum(abs(a - b) for a, b in zip(new, scores, strict=True))
         scores = new
         if delta < 1e-6:
             break

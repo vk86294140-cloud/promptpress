@@ -8,8 +8,8 @@ from promptpress.strategies import (
     WhitespaceStrategy,
 )
 
-
 # ── whitespace ──────────────────────────────────────────────────────────
+
 
 def test_whitespace_collapses_prose_but_not_code():
     text = "hello    world\n\n\n\nbye\n\n```\n    indented   code\n```\n"
@@ -27,6 +27,7 @@ def test_whitespace_idempotent():
 
 # ── markdown ────────────────────────────────────────────────────────────
 
+
 def test_markdown_strips_bold_keeps_headers():
     out = MarkdownStrategy().compress("# Title\n\n**bold** and *ital* text\n\n---\n")
     assert "# Title" in out
@@ -43,6 +44,7 @@ def test_markdown_preserves_code_and_urls():
 
 
 # ── code ────────────────────────────────────────────────────────────────
+
 
 def test_code_strips_python_comments_and_docstrings():
     text = (
@@ -67,9 +69,11 @@ def test_code_generic_language():
 
 # ── dedup ───────────────────────────────────────────────────────────────
 
+
 def test_dedup_drops_near_duplicate_paragraphs():
     para = "The deployment failed because the health check timed out after thirty seconds."
-    text = f"{para}\n\nUnrelated paragraph about databases and indexing strategies.\n\n{para} Extra word."
+    unrelated = "Unrelated paragraph about databases and indexing strategies."
+    text = f"{para}\n\n{unrelated}\n\n{para} Extra word."
     out = DedupStrategy().compress(text)
     assert out.count("health check timed out") == 1
     assert "databases and indexing" in out
@@ -83,6 +87,7 @@ def test_dedup_never_touches_code():
 
 
 # ── stopword ────────────────────────────────────────────────────────────
+
 
 def test_stopword_drops_articles_keeps_facts():
     out = StopwordStrategy().compress("The server just really needs a restart of the daemon.")
@@ -102,6 +107,7 @@ def test_stopword_protects_code_and_quotes():
 
 
 # ── extract ─────────────────────────────────────────────────────────────
+
 
 def _para(n):
     return " ".join(
@@ -127,6 +133,7 @@ def test_extract_skips_code_and_lists():
 
 # ── html ────────────────────────────────────────────────────────────────
 
+
 def test_html_strips_tags_keeps_text():
     out = HtmlStrategy().compress('<div class="x"><p>Hello <b>world</b></p></div>')
     assert "Hello world" in out
@@ -149,8 +156,8 @@ def test_html_drops_comments_script_style():
 def test_html_preserves_code_and_urls():
     text = "see `<div>` literal and https://x.com/<a> then <span>strip me</span>"
     out = HtmlStrategy().compress(text)
-    assert "`<div>`" in out                  # inline code untouched
-    assert "https://x.com/<a>" in out        # URL untouched
+    assert "`<div>`" in out  # inline code untouched
+    assert "https://x.com/<a>" in out  # URL untouched
     assert "<span>" not in out and "strip me" in out
 
 

@@ -38,12 +38,12 @@ def estimate_tokens(text: str) -> int:
 def count_tokens_exact(text: str, model: str = "claude-haiku-4-5-20251001") -> int:
     """Real token count via the Anthropic API; falls back to the estimate."""
     try:
-        import anthropic
+        import anthropic  # type: ignore[import-not-found]
 
         client = anthropic.Anthropic()
         resp = client.messages.count_tokens(
             model=model, messages=[{"role": "user", "content": text}]
         )
-        return resp.input_tokens
+        return int(resp.input_tokens)
     except Exception:
         return estimate_tokens(text)

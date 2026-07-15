@@ -8,6 +8,7 @@ caller can see exactly what was traded away.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from .strategies.base import Strategy
@@ -77,7 +78,7 @@ class Pipeline:
         self,
         strategies: list[Strategy] | None = None,
         max_level: int = 3,
-        counter=estimate_tokens,
+        counter: Callable[[str], int] = estimate_tokens,
     ):
         self.strategies = sorted(strategies or default_strategies(), key=lambda s: s.level)
         self.max_level = max_level
@@ -86,8 +87,11 @@ class Pipeline:
     def compress(self, text: str, budget: int | None = None) -> CompressionResult:
         before = self.counter(text)
         result = CompressionResult(
-            text=text, tokens_before=before, tokens_after=before,
-            budget=budget, met_budget=budget is None or before <= budget,
+            text=text,
+            tokens_before=before,
+            tokens_after=before,
+            budget=budget,
+            met_budget=budget is None or before <= budget,
         )
         if result.met_budget and budget is not None:
             return result  # already under budget — touch nothing
